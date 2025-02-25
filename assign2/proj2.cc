@@ -131,14 +131,17 @@ vector<Voxel> create_cube(vector<vector<vector<float>>> &data, int p, int r,
 // interpolate where the voxel should be given 2 voxels and the expected
 // surfacelvl
 Voxel interpolate(Voxel v1, Voxel v2, float surfacelvl) {
-    Voxel output;
-    double mu = (surfacelvl - v1.value) / (v2.value - v1.value);
+    Voxel v3;
+    // interpolation factor a guess on where the point
+    // should be based of v1 and v2 values
+    double t = (surfacelvl - v1.value) / (v2.value - v1.value);
 
-    output.x = mu * (v2.x - v1.x) + v1.x;
-    output.y = mu * (v2.y - v1.y) + v1.y;
-    output.z = mu * (v2.z - v1.z) + v1.z;
+    // calculate where the v3 should be based off the interpolation guess
+    v3.x = t * (v2.x - v1.x) + v1.x;
+    v3.y = t * (v2.y - v1.y) + v1.y;
+    v3.z = t * (v2.z - v1.z) + v1.z;
 
-    return output;
+    return v3;
 }
 
 vector<Voxel> get_edges(vector<Voxel> &cube, int cubeIdx, float surfacelvl) {
