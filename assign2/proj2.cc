@@ -1,0 +1,204 @@
+#include "proj2.h"
+
+using std::cout;
+using std::endl;
+using std::string;
+using std::to_string;
+using std::vector;
+
+int main(int argc, char *argv[]) {
+    if (argc != 4) {
+        cout << "usage ./proj2 input output surfacelvl" << endl;
+        return 0;
+    }
+    string filename = argv[1];
+
+    std::ifstream file(filename, std::ios::binary);
+
+    // grab first few values
+    int cols, rows, planes;
+    file >> cols >> rows >> planes;
+    cout << "cols:" << cols << " rows:" << rows << " planes:" << planes << endl;
+
+    // clear the whitespace
+    char whitespace;
+    file.read(&whitespace, 1);
+
+    // 3d array to hold all of the data
+    vector<vector<vector<float>>> data(
+        planes, vector<vector<float>>(rows, vector<float>(cols)));
+
+    float value;
+    for (int p = 0; p < planes; ++p) {
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                file.read(reinterpret_cast<char *>(&value), sizeof(float));
+                data[p][r][c] = value;
+            }
+        }
+    }
+
+    file.close();
+
+    // for (int p = 0; p < planes; ++p) {
+    //     cout << "plane " << p << ":\n";
+    //     for (int r = 0; r < rows; ++r) {
+    //         for (int c = 0; c < cols; ++c) {
+    //             cout << data[p][r][c] << " ";
+    //         }
+    //         cout << endl;
+    //     }
+    //     cout << endl;
+    // }
+
+    float surfacelvl = std::stof(argv[3]);
+    vector<vector<Voxel>> triangles;
+    for (int p = 0; p < planes - 1; ++p) {
+        for (int r = 0; r < rows - 1; ++r) {
+            for (int c = 0; c < cols - 1; ++c) {
+                vector<Voxel> cube = create_cube(data, p, r, c);
+
+                vector<vector<Voxel>> newTriangles =
+                    get_triangles(cube, surfacelvl);
+
+                // add all of the new triangles to triangles vector
+                triangles.insert(triangles.end(), newTriangles.begin(),
+                                 newTriangles.end());
+            }
+        }
+    }
+
+    vector<vector<int>> faceList;
+    // Voxels here won't have value init
+    vector<Voxel> coords;
+    int vert = 0;
+    for (int i = 0; i < (int)triangles.size(); ++i) {
+        vector<int> face;
+        for (int j = 0; j < (int)triangles[i].size(); ++j) {
+            // cout << triangles[i][j].x << " " << triangles[i][j].y << " "
+            //      << triangles[i][j].z << endl;
+            coords.push_back(triangles[i][j]);
+            face.push_back(vert);
+            ++vert;
+        }
+        faceList.push_back(face);
+    }
+
+    writeOutput(argv[2], coords, faceList);
+}
+
+// based on what vertex points are above the surfacelvl will return the related
+// table index
+int get_cubeIdx(vector<Voxel> &cube, float surfacelvl) {
+    int cubeIdx = 0;
+    for (int i = 0; i < 8; ++i) {
+        if (cube[i].value < surfacelvl) {
+            cubeIdx |= (1 << i);
+        }
+    }
+    return cubeIdx;
+}
+
+// create a cube consisting of 8 voxels
+vector<Voxel> create_cube(vector<vector<vector<float>>> &data, int p, int r,
+                          int c) {
+    vector<vector<int>> cubeCoords = {
+        {p, r, c},
+        {p + 1, r, c},
+        {p + 1, r, c + 1},
+        {p, r, c + 1},
+        {p, r + 1, c},
+        {p + 1, r + 1, c},
+        {p + 1, r + 1, c + 1},
+        {p, r + 1, c + 1},
+    };
+
+    vector<Voxel> cube;
+
+    for (auto c : cubeCoords) {
+        // cubeValues.push_back(p, r, c, data[p][r][c])
+        Voxel v;
+        v.x = (float)c[0];
+        v.y = (float)c[1];
+        v.z = (float)c[2];
+        v.value = data[c[0]][c[1]][c[2]];
+        cube.push_back(v);
+    }
+
+    return cube;
+}
+
+// interpolate where the voxel should be given 2 voxels and the expected
+// surfacelvl
+Voxel interpolate(Voxel v1, Voxel v2, float surfacelvl) {
+    Voxel output;
+    double mu = (surfacelvl - v1.value) / (v2.value - v1.value);
+
+    output.x = mu * (v2.x - v1.x) + v1.x;
+    output.y = mu * (v2.y - v1.y) + v1.y;
+    output.z = mu * (v2.z - v1.z) + v1.z;
+
+    return output;
+}
+
+vector<Voxel> get_edges(vector<Voxel> &cube, int cubeIdx, float surfacelvl) {
+    // get all of the edges that intersect with current cube
+    // since there are 12 edges there can only be 12 intersections
+    vector<Voxel> voxelEdges(12);
+    int edgeKey = edgeTable[cubeIdx];
+    int idx = 0;
+    while (edgeKey) {
+        // if the first bit is 1
+        if (edgeKey & 1) {
+            // interpolate v1 and v2 at the surface level to get v3
+            voxelEdges[idx] = interpolate(cube[edges[idx][0]],
+                                          cube[edges[idx][1]], surfacelvl);
+        }
+        ++idx;
+        // right shift 1
+        edgeKey >>= 1;
+    }
+    return voxelEdges;
+}
+
+vector<vector<Voxel>> get_triangles(vector<Voxel> &cube, float surfacelvl) {
+    int cubeIdx = get_cubeIdx(cube, surfacelvl);
+    vector<Voxel> voxelEdges = get_edges(cube, cubeIdx, surfacelvl);
+
+    vector<vector<Voxel>> triangles;
+    for (int i = 0; i < (int)triangulationTable[cubeIdx].size(); i += 3) {
+        vector<Voxel> triangle(3);
+        for (int j = 0; j < 3; j++) {
+            triangle[j] = voxelEdges[triangulationTable[cubeIdx][i + j]];
+        }
+        triangles.push_back(triangle);
+    }
+
+    return triangles;
+}
+
+// turns lines into lines of a new file
+void writeOutput(string fileName, vector<Voxel> &coords,
+                 vector<vector<int>> &facesList) {
+    // write all changes to a new file starting with the header
+    string output = "PolySet \"P\" " + to_string(coords.size()) + " " +
+                    to_string(facesList.size()) + "\n";
+    for (int i = 0; i < (int)coords.size(); ++i) {
+        output += to_string(coords[i].x) + " " + to_string(coords[i].y) + " " +
+                  to_string(coords[i].z) + "\n";
+    }
+
+    // now add all of the faces to the output file
+    output += "\n";
+    for (int i = 0; i < (int)facesList.size(); i++) {
+        for (int j = 0; j < (int)facesList[i].size(); j++) {
+            output += to_string(facesList[i][j]) + " ";
+        }
+        output += "-1\n";
+    }
+
+    // write to output file
+    std::ofstream outputFile(fileName);
+    outputFile << output;
+    outputFile.close();
+}
