@@ -75,9 +75,7 @@ int main(int argc, char *argv[]) {
     const float WOBBLE_PERIOD = 200;  // Number of frames
 
     int frame_count = 0;
-    int total_frames = 1000;
-    while (total_frames > 0) {
-        total_frames--;
+    while (1) {
         cout << "FrameBegin " << frame_count++ << "\n";
         cout << "WorldBegin\n";
         // Translate
@@ -202,7 +200,7 @@ int main(int argc, char *argv[]) {
         delay.tv_sec = 0;
         delay.tv_nsec = 200000000;  // nanosec
 
-        // nanosleep(&delay, 0);
+        nanosleep(&delay, 0);
     }
 
     return 0;

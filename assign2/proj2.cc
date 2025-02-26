@@ -8,7 +8,7 @@ using std::vector;
 
 int main(int argc, char *argv[]) {
     if (argc != 4) {
-        cout << "usage ./proj2 input output surfacelvl" << endl;
+        cout << "usage ./proj2 input_file output_file surfacelvl" << endl;
         return 0;
     }
     string filename = argv[1];
