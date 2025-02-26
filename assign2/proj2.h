@@ -21,15 +21,11 @@ void writeOutput(std::string fileName, vector<Voxel> &coords,
 vector<Voxel> create_cube(vector<vector<vector<float>>> &data, int p, int r,
                           int c);
 
-vector<vector<Voxel>> get_triangles(vector<Voxel> &cube, float surfacelvl);
-
-vector<vector<int>> edges = {
-    {0, 1}, {1, 2}, {2, 3}, {0, 3}, {4, 5}, {5, 6},
-    {6, 7}, {4, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7},
-};
+void get_triangles(vector<vector<Voxel>> &triangles, vector<Voxel> &cube,
+                   float surfacelvl);
 
 // research paper https://dl.acm.org/doi/pdf/10.1145/37402.37422
-// https://paulbourke.net/geometry/polygonise/
+// https://paulbourke.net/geometry/polygonise/ the site i used to fact check
 vector<vector<int>> triangulationTable = {
     {},                                                  // 0000
     {0, 8, 3},                                           // 0001
@@ -289,7 +285,17 @@ vector<vector<int>> triangulationTable = {
     {}                                                   // 1111 1111
 };
 
-int edgeTable[256] = {
+vector<vector<int>> edges = {
+    {0, 1}, {1, 2}, {2, 3}, {0, 3}, {4, 5}, {5, 6},
+    {6, 7}, {4, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7},
+};
+
+// index this table using cubeIdx and the value will be a binary number
+// representing which of the edges in the edges vector are used for the
+// particular cubeIdx
+// ex: cubeIdx 38 would idx into 0x435 -> 10000110101 meaning that indicies
+// 0, 2, 4, 5, 10 are all the edges we use
+vector<int> verts_to_edges_table = {
     0x0,   0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c, 0x80c, 0x905, 0xa0f,
     0xb06, 0xc0a, 0xd03, 0xe09, 0xf00, 0x190, 0x99,  0x393, 0x29a, 0x596, 0x49f,
     0x795, 0x69c, 0x99c, 0x895, 0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90, 0x230,

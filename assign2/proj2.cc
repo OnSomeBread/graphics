@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
     vector<vector<vector<float>>> data(
         planes, vector<vector<float>>(rows, vector<float>(cols)));
 
+    // read each value assuming little endian binary floats
     float value;
     for (int p = 0; p < planes; ++p) {
         for (int r = 0; r < rows; ++r) {
@@ -58,19 +59,17 @@ int main(int argc, char *argv[]) {
             for (int c = 0; c < cols - 1; ++c) {
                 vector<Voxel> cube = create_cube(data, p, r, c);
 
-                vector<vector<Voxel>> newTriangles =
-                    get_triangles(cube, surfacelvl);
-
-                // add all of the new triangles to triangles vector
-                triangles.insert(triangles.end(), newTriangles.begin(),
-                                 newTriangles.end());
+                // add all of the triangles for this cubeIdx and surfacelvl to
+                // the main triangles vec
+                get_triangles(triangles, cube, surfacelvl);
             }
         }
     }
 
-    vector<vector<int>> faceList;
+    // turn triangles into a polyset of coords and faces
     // Voxels here won't have value init
     vector<Voxel> coords;
+    vector<vector<int>> faceList;
     int vert = 0;
     for (int i = 0; i < (int)triangles.size(); ++i) {
         vector<int> face;
@@ -84,6 +83,7 @@ int main(int argc, char *argv[]) {
         faceList.push_back(face);
     }
 
+    // finally create the polyset file
     writeOutput(argv[2], coords, faceList);
 }
 
@@ -114,7 +114,6 @@ vector<Voxel> create_cube(vector<vector<vector<float>>> &data, int p, int r,
     };
 
     vector<Voxel> cube;
-
     for (auto c : cubeCoords) {
         // cubeValues.push_back(p, r, c, data[p][r][c])
         Voxel v;
@@ -144,40 +143,46 @@ Voxel interpolate(Voxel v1, Voxel v2, float surfacelvl) {
     return v3;
 }
 
-vector<Voxel> get_edges(vector<Voxel> &cube, int cubeIdx, float surfacelvl) {
-    // get all of the edges that intersect with current cube
-    // since there are 12 edges there can only be 12 intersections
-    vector<Voxel> voxelEdges(12);
-    int edgeKey = edgeTable[cubeIdx];
+// get all of the edges that intersect with current cube
+// since there are 12 edges there can only be at most 12 new voxels
+vector<Voxel> get_new_voxel_coords(vector<Voxel> &cube, int cubeIdx,
+                                   float surfacelvl) {
+    vector<Voxel> voxels(12);
+    int edgeKey = verts_to_edges_table[cubeIdx];
     int idx = 0;
     while (edgeKey) {
         // if the first bit is 1
         if (edgeKey & 1) {
             // interpolate v1 and v2 at the surface level to get v3
-            voxelEdges[idx] = interpolate(cube[edges[idx][0]],
-                                          cube[edges[idx][1]], surfacelvl);
+            voxels[idx] = interpolate(cube[edges[idx][0]], cube[edges[idx][1]],
+                                      surfacelvl);
         }
         ++idx;
         // right shift 1
         edgeKey >>= 1;
     }
-    return voxelEdges;
+    return voxels;
 }
 
-vector<vector<Voxel>> get_triangles(vector<Voxel> &cube, float surfacelvl) {
+// using all of the interpolated voxels from the get_new_voxel_coords func
+// go through the triangulation table in sets of 3 and add them as a triangle to
+// the triangles vec
+void get_triangles(vector<vector<Voxel>> &triangles, vector<Voxel> &cube,
+                   float surfacelvl) {
     int cubeIdx = get_cubeIdx(cube, surfacelvl);
-    vector<Voxel> voxelEdges = get_edges(cube, cubeIdx, surfacelvl);
+    vector<Voxel> voxels = get_new_voxel_coords(cube, cubeIdx, surfacelvl);
 
-    vector<vector<Voxel>> triangles;
     for (int i = 0; i < (int)triangulationTable[cubeIdx].size(); i += 3) {
-        vector<Voxel> triangle(3);
-        for (int j = 0; j < 3; j++) {
-            triangle[j] = voxelEdges[triangulationTable[cubeIdx][i + j]];
-        }
+        vector<Voxel> triangle;
+
+        // get each of the interpolated coords from voxels in sets of 3 that
+        // make a triangle for the current cubeIdx
+        triangle.push_back(voxels[triangulationTable[cubeIdx][i]]);
+        triangle.push_back(voxels[triangulationTable[cubeIdx][i + 1]]);
+        triangle.push_back(voxels[triangulationTable[cubeIdx][i + 2]]);
+
         triangles.push_back(triangle);
     }
-
-    return triangles;
 }
 
 // turns lines into lines of a new file
