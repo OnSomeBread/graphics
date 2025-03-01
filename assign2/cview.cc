@@ -75,7 +75,8 @@ int main(int argc, char *argv[]) {
     const float WOBBLE_PERIOD = 200;  // Number of frames
 
     int frame_count = 0;
-    while (1) {
+    int total_frames = 1000;
+    while (--total_frames) {
         cout << "FrameBegin " << frame_count++ << "\n";
         cout << "WorldBegin\n";
         // Translate
@@ -102,33 +103,33 @@ int main(int argc, char *argv[]) {
         /*
         cout << "Color 1.0 0.0 0.0\n";
         cout << "Line 0 0 0  "
-         << (ncols-1) << " 0 0\n";
+             << (ncols-1) << " 0 0\n";
         cout << "Line 0 " << (nrows-1) << " 0  "
-         << (ncols-1) << " " << (nrows-1) << " 0\n";
+             << (ncols-1) << " " << (nrows-1) << " 0\n";
         cout << "Line 0 0 " << (nplanes-1) << "  "
-         << (ncols-1) << " 0 " << (nplanes-1) << "\n";
+             << (ncols-1) << " 0 " << (nplanes-1) << "\n";
         cout << "Line 0 " << (nrows-1) << " " << (nplanes-1) << "  "
-         << (ncols-1) << " " << (nrows-1) << " " << (nplanes-1) << "\n";
+             << (ncols-1) << " " << (nrows-1) << " " << (nplanes-1) << "\n";
 
         cout << "Color 0.0 1.0 0.0\n";
         cout << "Line 0 0 0  "
-         << "0 " << (nrows-1) << " 0\n";
+             << "0 " << (nrows-1) << " 0\n";
         cout << "Line " << (ncols-1) << " 0 0  "
-         << (ncols-1) << " " << (nrows-1) << " 0\n";
+             << (ncols-1) << " " << (nrows-1) << " 0\n";
         cout << "Line 0 0 " << (nplanes-1) << "  "
-         << "0 " << (nrows-1) << " " << (nplanes-1) << "\n";
+             << "0 " << (nrows-1) << " " << (nplanes-1) << "\n";
         cout << "Line " << (ncols-1) << " 0 " << (nplanes-1) << "  "
-         << (ncols-1) << " " << (nrows-1) << " " << (nplanes-1) << "\n";
+             << (ncols-1) << " " << (nrows-1) << " " << (nplanes-1) << "\n";
 
         cout << "Color 0.0 0.0 1.0\n";
         cout << "Line 0 0 0  "
-         << "0 0 " << (nplanes-1) << "\n";
+             << "0 0 " << (nplanes-1) << "\n";
         cout << "Line " << (ncols-1) << " 0 0  "
-         << (ncols-1) << " 0 " << (nplanes-1) << "\n";
+             << (ncols-1) << " 0 " << (nplanes-1) << "\n";
         cout << "Line 0 " << (nrows-1) << " 0  "
-         << "0 " << (nrows-1) << " " << (nplanes-1) << "\n";
+             << "0 " << (nrows-1) << " " << (nplanes-1) << "\n";
         cout << "Line " << (ncols-1) << " " << (nrows-1) << " 0  "
-         << (ncols-1) << " " << (nrows-1) << " " << (nplanes-1) << "\n";
+             << (ncols-1) << " " << (nrows-1) << " " << (nplanes-1) << "\n";
         */
         cout << "LineSet \"PC\"\n";
         cout << "24 12\n";
@@ -200,7 +201,7 @@ int main(int argc, char *argv[]) {
         delay.tv_sec = 0;
         delay.tv_nsec = 200000000;  // nanosec
 
-        nanosleep(&delay, 0);
+        // nanosleep(&delay, 0);
     }
 
     return 0;

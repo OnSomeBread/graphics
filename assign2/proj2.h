@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -21,11 +22,11 @@ void writeOutput(std::string fileName, vector<Voxel> &coords,
 vector<Voxel> create_cube(vector<vector<vector<float>>> &data, int p, int r,
                           int c);
 
-void get_triangles(vector<vector<Voxel>> &triangles, vector<Voxel> &cube,
+void get_triangles(vector<vector<vector<float>>> &data,
+                   vector<vector<Voxel>> &triangles, vector<Voxel> &cube,
                    float surfacelvl);
 
 // research paper https://dl.acm.org/doi/pdf/10.1145/37402.37422
-// https://paulbourke.net/geometry/polygonise/ the site i used to fact check
 vector<vector<int>> triangulationTable = {
     {},                                                  // 0000
     {0, 8, 3},                                           // 0001
