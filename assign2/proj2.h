@@ -17,7 +17,7 @@ struct Voxel {
 };
 
 void writeOutput(std::string fileName, vector<Voxel> &coords,
-                 vector<vector<int>> &facesList);
+                 vector<Voxel> &norms, vector<vector<int>> &facesList);
 
 vector<Voxel> create_cube(vector<vector<vector<float>>> &data, int p, int r,
                           int c);
@@ -25,6 +25,9 @@ vector<Voxel> create_cube(vector<vector<vector<float>>> &data, int p, int r,
 void get_triangles(vector<vector<vector<float>>> &data,
                    vector<vector<Voxel>> &triangles, vector<Voxel> &cube,
                    float surfacelvl);
+void get_normals(vector<vector<vector<float>>> &data,
+                 vector<vector<Voxel>> &normals, vector<Voxel> &cube,
+                 float surfacelvl);
 
 // research paper https://dl.acm.org/doi/pdf/10.1145/37402.37422
 vector<vector<int>> triangulationTable = {

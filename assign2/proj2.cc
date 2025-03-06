@@ -56,6 +56,7 @@ int main(int argc, char *argv[]) {
 
     float surfacelvl = std::stof(argv[3]);
     vector<vector<Voxel>> triangles;
+    vector<vector<Voxel>> normals;
     for (int p = 0; p < planes - 1; ++p) {
         for (int r = 0; r < rows - 1; ++r) {
             for (int c = 0; c < cols - 1; ++c) {
@@ -64,6 +65,7 @@ int main(int argc, char *argv[]) {
                 // add all of the triangles for this cubeIdx and surfacelvl to
                 // the main triangles vec
                 get_triangles(data, triangles, cube, surfacelvl);
+                get_normals(data, normals, cube, surfacelvl);
             }
         }
     }
@@ -71,6 +73,7 @@ int main(int argc, char *argv[]) {
     // turn triangles into a polyset of coords and faces
     // Voxels here won't have value init
     vector<Voxel> coords;
+    vector<Voxel> norms;
     vector<vector<int>> faceList;
     int vert = 0;
     for (int i = 0; i < (int)triangles.size(); ++i) {
@@ -79,6 +82,7 @@ int main(int argc, char *argv[]) {
             // cout << triangles[i][j].x << " " << triangles[i][j].y << " "
             //      << triangles[i][j].z << endl;
             coords.push_back(triangles[i][j]);
+            norms.push_back(normals[i][j]);
             face.push_back(vert);
             ++vert;
         }
@@ -86,7 +90,7 @@ int main(int argc, char *argv[]) {
     }
 
     // finally create the polyset file
-    writeOutput(argv[2], coords, faceList);
+    writeOutput(argv[2], coords, norms, faceList);
 }
 
 // based on what vertex points are above the surfacelvl will return the related
@@ -135,12 +139,25 @@ Voxel get_gradient(vector<vector<vector<float>>> &data, int i, int j, int k) {
     int ny = data[0].size();
     int nz = data[0][0].size();
 
+    float h1 = 2.0;
+    if (i >= nx - 1 || i == 0) {
+        h1 = 1;
+    }
+    float h2 = 2.0;
+    if (j >= ny - 1 || j == 0) {
+        h2 = 1;
+    }
+    float h3 = 2.0;
+    if (k >= nz - 1 || k == 0) {
+        h3 = 1;
+    }
+
     float dx =
-        (data[min(i + 1, nx - 1)][j][k] - data[max(i - 1, 0)][j][k]) / 2.0;
+        (data[min(i + 1, nx - 1)][j][k] - data[max(i - 1, 0)][j][k]) / h1;
     float dy =
-        (data[i][min(j + 1, ny - 1)][k] - data[i][max(j - 1, 0)][k]) / 2.0;
+        (data[i][min(j + 1, ny - 1)][k] - data[i][max(j - 1, 0)][k]) / h2;
     float dz =
-        (data[i][j][min(k + 1, nz - 1)] - data[i][j][max(k - 1, 0)]) / 2.0;
+        (data[i][j][min(k + 1, nz - 1)] - data[i][j][max(k - 1, 0)]) / h3;
 
     // float n = -sqrt(dx * dx + dy * dy + dz * dz);
     Voxel v;
@@ -213,6 +230,75 @@ vector<Voxel> get_new_voxel_coords(vector<vector<vector<float>>> &data,
     return voxels;
 }
 
+// get all of the edges that intersect with current cube
+// since there are 12 edges there can only be at most 12 new voxels
+vector<Voxel> get_new_voxel_norms(vector<vector<vector<float>>> &data,
+                                  vector<Voxel> &cube, int cubeIdx,
+                                  float surfacelvl) {
+    vector<Voxel> voxels(12);
+    int edgeKey = verts_to_edges_table[cubeIdx];
+    int idx = 0;
+    while (edgeKey) {
+        // if the first bit is 1
+        if (edgeKey & 1) {
+            // interpolate v1 and v2 at the surface level to get v3
+            Voxel v1 = cube[edges[idx][0]];
+            Voxel v2 = cube[edges[idx][1]];
+
+            Voxel g1 = get_gradient(data, v1.x, v1.y, v1.z);
+            g1.value = v1.value;
+            Voxel g2 = get_gradient(data, v2.x, v2.y, v2.z);
+            g2.value = v2.value;
+
+            Voxel v3 = interpolate(g1, g2, surfacelvl);
+
+            // Voxel v3 = interpolate(v1, v2, surfacelvl);
+            // v3 = get_gradient(data, v3.x, v3.y, v3.z);
+            // float n = -sqrt(v3.x * v3.x + v3.y * v3.y + v3.z * v3.z);
+            // if (n != 0) {
+            //     v3.x /= n;
+            //     v3.y /= n;
+            //     v3.z /= n;
+            //     voxels[idx] = v3;
+            // } else {
+            //     v3.x = 0;
+            //     v3.y = 0;
+            //     v3.z = 0;
+            //     voxels[idx] = v3;
+            // }
+
+            voxels[idx] = v3;
+            // voxels[idx] = interpolate(v1, v2, surfacelvl);
+        }
+        ++idx;
+        // right shift 1
+        edgeKey >>= 1;
+    }
+    return voxels;
+}
+
+// using all of the interpolated voxels from the get_new_voxel_coords func
+// go through the triangulation table in sets of 3 and add them as a triangle to
+// the triangles vec
+void get_normals(vector<vector<vector<float>>> &data,
+                 vector<vector<Voxel>> &triangles, vector<Voxel> &cube,
+                 float surfacelvl) {
+    int cubeIdx = get_cubeIdx(cube, surfacelvl);
+    vector<Voxel> voxels = get_new_voxel_norms(data, cube, cubeIdx, surfacelvl);
+
+    for (int i = 0; i < (int)triangulationTable[cubeIdx].size(); i += 3) {
+        vector<Voxel> triangle;
+
+        // get each of the interpolated coords from voxels in sets of 3 that
+        // make a triangle for the current cubeIdx
+        triangle.push_back(voxels[triangulationTable[cubeIdx][i]]);
+        triangle.push_back(voxels[triangulationTable[cubeIdx][i + 1]]);
+        triangle.push_back(voxels[triangulationTable[cubeIdx][i + 2]]);
+
+        triangles.push_back(triangle);
+    }
+}
+
 // using all of the interpolated voxels from the get_new_voxel_coords func
 // go through the triangulation table in sets of 3 and add them as a triangle to
 // the triangles vec
@@ -237,14 +323,16 @@ void get_triangles(vector<vector<vector<float>>> &data,
 }
 
 // turns lines into lines of a new file
-void writeOutput(string fileName, vector<Voxel> &coords,
+void writeOutput(string fileName, vector<Voxel> &coords, vector<Voxel> &norms,
                  vector<vector<int>> &facesList) {
     // write all changes to a new file starting with the header
-    string output = "PolySet \"P\" " + to_string(coords.size()) + " " +
+    string output = "PolySet \"PN\" " + to_string(coords.size()) + " " +
                     to_string(facesList.size()) + "\n";
     for (int i = 0; i < (int)coords.size(); ++i) {
         output += to_string(coords[i].x) + " " + to_string(coords[i].y) + " " +
-                  to_string(coords[i].z) + "\n";
+                  to_string(coords[i].z) + " ";
+        output += to_string(norms[i].x) + " " + to_string(norms[i].y) + " " +
+                  to_string(norms[i].z) + "\n";
     }
 
     // now add all of the faces to the output file
