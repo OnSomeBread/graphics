@@ -135,6 +135,8 @@ Voxel get_gradient(vector<vector<vector<float>>> &data, int i, int j, int k) {
     int ny = data[0].size();
     int nz = data[0][0].size();
 
+    // the length of the approximation
+    // making sure that the endpoints are only length 1
     float h1 = 2.0;
     float h2 = 2.0;
     float h3 = 2.0;
@@ -168,6 +170,7 @@ Voxel interpolate(Voxel v1, Voxel v2, Voxel g1, Voxel g2, float surfacelvl) {
     v3.y = t * (v2.y - v1.y) + v1.y;
     v3.z = t * (v2.z - v1.z) + v1.z;
 
+    // calculate the normals for the given point
     v3.nx = t * (g2.x - g1.x) + g1.x;
     v3.ny = t * (g2.y - g1.y) + g1.y;
     v3.nz = t * (g2.z - g1.z) + g1.z;
@@ -177,9 +180,9 @@ Voxel interpolate(Voxel v1, Voxel v2, Voxel g1, Voxel g2, float surfacelvl) {
 
 // get all of the edges that intersect with current cube
 // since there are 12 edges there can only be at most 12 new voxels
-vector<Voxel> get_new_voxel_coords(vector<vector<vector<float>>> &data,
-                                   vector<Voxel> &cube, int cubeIdx,
-                                   float surfacelvl) {
+vector<Voxel> get_voxel_coords(vector<vector<vector<float>>> &data,
+                               vector<Voxel> &cube, int cubeIdx,
+                               float surfacelvl) {
     vector<Voxel> voxels(12);
     int edgeKey = verts_to_edges_table[cubeIdx];
     int idx = 0;
@@ -191,14 +194,11 @@ vector<Voxel> get_new_voxel_coords(vector<vector<vector<float>>> &data,
             Voxel v2 = cube[edges[idx][1]];
 
             Voxel g1 = get_gradient(data, v1.x, v1.y, v1.z);
-            g1.value = v1.value;
             Voxel g2 = get_gradient(data, v2.x, v2.y, v2.z);
-            g2.value = v2.value;
 
             voxels[idx] = interpolate(v1, v2, g1, g2, surfacelvl);
         }
         ++idx;
-        // right shift 1
         edgeKey >>= 1;
     }
     return voxels;
@@ -211,8 +211,7 @@ void get_triangles(vector<vector<vector<float>>> &data,
                    vector<vector<Voxel>> &triangles, vector<Voxel> &cube,
                    float surfacelvl) {
     int cubeIdx = get_cubeIdx(cube, surfacelvl);
-    vector<Voxel> voxels =
-        get_new_voxel_coords(data, cube, cubeIdx, surfacelvl);
+    vector<Voxel> voxels = get_voxel_coords(data, cube, cubeIdx, surfacelvl);
 
     for (int i = 0; i < (int)triangulationTable[cubeIdx].size(); i += 3) {
         vector<Voxel> triangle;
