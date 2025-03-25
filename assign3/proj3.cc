@@ -10,6 +10,8 @@ int RenderEngine::rd_bezier_curve(const string &vertex_type, int degree,
     if (err) return err;
 
     render_m_attr.add_shading_offset();
+
+    return 0;
 }
 
 int RenderEngine::rd_bezier_patch(const string &vertex_type, int u_degree,
@@ -23,4 +25,16 @@ int RenderEngine::rd_bezier_patch(const string &vertex_type, int u_degree,
 
     render_m_attr.add_normal();
     render_m_attr.add_shading_offset();
+
+    return 0;
+}
+
+int rd_sqsphere(float radius, float north, float east, float zmin, float zmax,
+                float thetamax) {
+    return 0;
+}
+
+int rd_sqtorus(float radius1, float radius2, float phimin, float phimax,
+               float thetamax) {
+    return 0;
 }

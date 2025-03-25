@@ -282,6 +282,7 @@ struct meta_attribute {
 
     int size;
 
+    // position in which they appear
     int geometry;
     int color;
     int normal;
