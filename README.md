@@ -1,6 +1,5 @@
 assign 1 - skew, twist, extrude, and sweeps on a polyset<br>
-usage ./proj1 inputFileName outputFileName technique techniqueArgs<br><br>
-
+usage ./proj1 inputFileName outputFileName technique techniqueArgs<br>
 possible techniques and args are<br>
 skew skewX skewY<br>
 twist degrees<br>
