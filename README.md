@@ -13,8 +13,8 @@ to make rd_file all of the .dat files have rows, cols, planes = 20, 20, 20<br>
 ./cview rows cols planes output_file > output.rd<br>
 
 No Linear Interpolation and no Normals<br>
-<img src="sphere_no_lerp_no_normals.gif" width="400" /><br><br>
+<img src="assign_gifs/sphere_no_lerp_no_normals.gif" width="400" /><br><br>
 Linear Interpolation and no Normals<br>
-<img src="sphere_lerp_no_normals.gif" width="400" /><br><br>
+<img src="assign_gifs/sphere_lerp_no_normals.gif" width="400" /><br><br>
 Linear Interpolation and Normals<br>
-<img src="smooth_sphere.gif" width="400" /><br><br>
+<img src="assign_gifs/smooth_sphere.gif" width="400" /><br><br>
