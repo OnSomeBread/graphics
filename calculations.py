@@ -5,6 +5,18 @@ class Voxel:
         self.z:float = z
         self.w:float = w
 
+    def __add__(self, other):
+        return Voxel(self.x + other.x, self.y + other.y, self.z + other.z)
+    
+    def __sub__(self, other):
+        return Voxel(self.x - other.x, self.y - other.y, self.z - other.z)
+    
+    def __mul__(self, other:float):
+        return Voxel(self.x * other, self.y * other, self.z * other)
+    # def __mul__(self, other):
+    #     return Voxel(self.x * other.x, self.y * other.y, self.z * other.z)
+    
+
     def vprint(self):
         print(self.x/self.w, self.y/self.w, self.z/self.w)
 
@@ -13,10 +25,11 @@ def bezierCurve(controlPoints: list, t:float):
     cpoints = controlPoints.copy()
     while len(cpoints) > 1:
         for i in range(len(cpoints) - 1):
-            cpoints[i].x += t * (cpoints[i + 1].x - cpoints[i].x)
-            cpoints[i].y += t * (cpoints[i + 1].y - cpoints[i].y)
-            cpoints[i].z += t * (cpoints[i + 1].z - cpoints[i].z)
-            cpoints[i].w += t * (cpoints[i + 1].w - cpoints[i].w)
+            cpoints[i] += (cpoints[i + 1] - cpoints[i]) * t 
+            # cpoints[i].x += t * (cpoints[i + 1].x - cpoints[i].x)
+            # cpoints[i].y += t * (cpoints[i + 1].y - cpoints[i].y)
+            # cpoints[i].z += t * (cpoints[i + 1].z - cpoints[i].z)
+            # cpoints[i].w += t * (cpoints[i + 1].w - cpoints[i].w)
         cpoints.pop()
     return cpoints[0]
 
