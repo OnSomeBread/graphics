@@ -7,7 +7,7 @@ Background 0.6 0.7 0.8
 CameraUp 0 0 1
 CameraAt 3 0 3
 CameraEye 3 -7 3
-CameraFOV 60
+CameraFOV 90
 
 ObjectBegin "Axis"
 Color 1 0 0
@@ -41,16 +41,16 @@ WorldBegin
 
     Patch "Bezier" "PC"
         2 2 # biquadratic patch with color - x y z  r g b
-        -0.5 -0.5 -1.0 1.0 0.0 0.0  # Red
-        0.0 -0.5 -0.5 1.0 1.0 0.0  # Yellow
-        0.5 -0.5 -1.0 1.0 1.0 1.0  # White
+        -2.5 -2.5 -5.0 1.0 0.0 0.0  # Red
+        0.0 -2.5 -2.5 1.0 1.0 0.0  # Yellow
+        2.5 -2.5 -5.0 1.0 1.0 1.0  # White
 
-        -0.7  0.0  0.0 1.0 0.0 1.0  # Magenta
-        0.0  0.2 -1.0 0.5 0.5 0.5  # Gray
-        0.7  0.0  0.0 0.0 1.0 0.0  # Green
+        -3.5  0.0  0.0 1.0 0.0 1.0  # Magenta
+        0.0  1.0 -5.0 0.5 0.5 0.5  # Gray
+        3.5  0.0  0.0 0.0 1.0 0.0  # Green
 
-        -0.5  0.5  0.0 1.0 1.0 1.0  # White
-        0.1  0.7  1.0 1.0 1.0 0.0  # Yellow
-        0.5  0.5 -1.0 0.0 1.0 1.0  # Cyan
+        -2.5  2.5  0.0 1.0 1.0 1.0  # White
+        0.5  3.5  5.0 1.0 1.0 0.0  # Yellow
+        2.5  2.5 -5.0 0.0 1.0 1.0  # Cyan
 
 WorldEnd

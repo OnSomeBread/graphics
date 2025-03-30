@@ -134,17 +134,17 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
 
     float t = 0;  // t = 0 is coords[0] and t = 1 is coords[coords.size() - 1]
     float interval_size = 1.0 / n_divisions;
-    vector<V3> newcoords;
+    vector<V3> new_coords;
     while (t < 1) {
-        newcoords.push_back(evalBezierCurve(coords, t));
+        new_coords.push_back(evalBezierCurve(coords, t));
         t += interval_size;
     }
 
-    for (int i = 0; i < (int)newcoords.size() - 1; ++i) {
+    for (int i = 0; i < (int)new_coords.size() - 1; ++i) {
         attr_point s;
-        s.coord[0] = newcoords[i].x;
-        s.coord[1] = newcoords[i].y;
-        s.coord[2] = newcoords[i].z;
+        s.coord[0] = new_coords[i].x;
+        s.coord[1] = new_coords[i].y;
+        s.coord[2] = new_coords[i].z;
         s.coord[3] = 1.0;  // required
         s.coord[4] = 1.0;  // required
 
@@ -154,11 +154,11 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
         // s.coord[7] = 0.5;
 
         attr_point e;
-        e.coord[0] = newcoords[i + 1].x;
-        e.coord[1] = newcoords[i + 1].y;
-        e.coord[2] = newcoords[i + 1].z;
-        e.coord[3] = 1.0;  // required
-        e.coord[4] = 1.0;  // required
+        e.coord[0] = new_coords[i + 1].x;
+        e.coord[1] = new_coords[i + 1].y;
+        e.coord[2] = new_coords[i + 1].z;
+        e.coord[3] = 1.0;
+        e.coord[4] = 1.0;
 
         line_pipeline(s, MOVE);
         line_pipeline(e, DRAW);
@@ -186,63 +186,69 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
 
     vector<Vcolor> colors = get_colors(vertex);
 
-    vector<vector<V3> > coords;
-    for (int i = 0; i < u_degree + 1; ++i) {
-        vector<V3> c;
-        for (int j = 0; j < v_degree + 1; ++j) {
-            c.push_back(pre_coords[i * (v_degree + 1) + j]);
-        }
-        coords.push_back(c);
-    }
-
-    // while (t < 1) {
-    //     newcoords.push_back(decastlejau(coords, t));
-    //     t += interval_size;
+    // NEEDED FOR UV OPTIMIZATION
+    // vector<vector<V3> > coords;
+    // for (int i = 0; i < u_degree + 1; ++i) {
+    //     vector<V3> c;
+    //     for (int j = 0; j < v_degree + 1; ++j) {
+    //         c.push_back(pre_coords[i * (v_degree + 1) + j]);
+    //     }
+    //     coords.push_back(c);
     // }
+
+    vector<vector<V3> > new_coords;
     float interval_size = 1.0 / n_divisions;
     float u = 0;
     while (u < 1) {
         float v = 0;
 
+        vector<V3> new_coords_rows;
+
+        // FIND A BETTER WAY TO HANDLE UCOORDS AND VCOORDS
         vector<V3> ucoords;
         for (int i = 0; i < pre_coords.size(); ++i) {
             ucoords.push_back(pre_coords[i]);
         }
-        evalBezierCurve(ucoords, u);
+
+        V3 up = evalBezierCurve(ucoords, u);
         while (v < 1) {
             vector<V3> vcoords;
             for (int i = 0; i < pre_coords.size(); ++i) {
                 vcoords.push_back(pre_coords[i]);
             }
-            evalBezierCurve(vcoords, v);
+            new_coords_rows.push_back(evalBezierCurve(vcoords, v) * up);
             v += interval_size;
         }
+        new_coords.push_back(new_coords_rows);
         u += interval_size;
     }
 
-    // for (int i = 0; i < (int)newcoords.size() - 1; ++i) {
-    //     attr_point s;
-    //     s.coord[0] = newcoords[i].x;
-    //     s.coord[1] = newcoords[i].y;
-    //     s.coord[2] = newcoords[i].z;
-    //     s.coord[3] = 1.0;  // required
-    //     s.coord[4] = 1.0;  // required
+    // draw the bezier patch
+    for (int i = 0; i < (int)new_coords.size() - 1; ++i) {
+        for (int j = 0; j < (int)new_coords[i].size() - 1; j++) {
+            vector<V3> points;
+            points.push_back(new_coords[i][j]);
+            points.push_back(new_coords[i + 1][j]);
+            points.push_back(new_coords[i][j + 1]);
+            points.push_back(new_coords[i + 1][j + 1]);
 
-    //     // color ????
-    //     // s.coord[5] = 0.5;
-    //     // s.coord[6] = 0.5;
-    //     // s.coord[7] = 0.5;
+            vector<attr_point> attrs;
+            for (int k = 0; k < (int)points.size(); ++k) {
+                attr_point a;
+                a.coord[0] = points[i].x;
+                a.coord[1] = points[i].y;
+                a.coord[2] = points[i].z;
+                a.coord[3] = 1.0;
+                a.coord[4] = 1.0;
+                attrs.push_back(a);
+            }
 
-    //     attr_point e;
-    //     e.coord[0] = newcoords[i + 1].x;
-    //     e.coord[1] = newcoords[i + 1].y;
-    //     e.coord[2] = newcoords[i + 1].z;
-    //     e.coord[3] = 1.0;  // required
-    //     e.coord[4] = 1.0;  // required
-
-    //     line_pipeline(s, MOVE);
-    //     line_pipeline(e, DRAW);
-    // }
+            poly_pipeline(attrs[0], MOVE);
+            poly_pipeline(attrs[2], MOVE);
+            poly_pipeline(attrs[3], MOVE);
+            poly_pipeline(attrs[1], DRAW);
+        }
+    }
 
     render_m_attr.add_normal();
     render_m_attr.add_shading_offset();
