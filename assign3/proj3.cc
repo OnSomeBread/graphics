@@ -39,11 +39,26 @@ struct V3 {
         ans.z = this->z * coord.z;
         return ans;
     }
+    V3 operator/(V3 coord) {
+        V3 ans;
+        ans.x = this->x / coord.x;
+        ans.y = this->y / coord.y;
+        ans.z = this->z / coord.z;
+        return ans;
+    }
+
     V3 operator*(float c) {
         V3 ans;
         ans.x = this->x * c;
         ans.y = this->y * c;
         ans.z = this->z * c;
+        return ans;
+    }
+    V3 operator/(float c) {
+        V3 ans;
+        ans.x = this->x / c;
+        ans.y = this->y / c;
+        ans.z = this->z / c;
         return ans;
     }
 };
@@ -90,7 +105,7 @@ int factorial(int n) {
     return result;
 }
 
-V3 evalBezierCurve(vector<V3> &coords, float t) {
+V3 eval_bezier_curve(vector<V3> &coords, float t) {
     V3 ans;
     ans.x = 0;
     ans.y = 0;
@@ -104,7 +119,7 @@ V3 evalBezierCurve(vector<V3> &coords, float t) {
     return ans;
 }
 
-V3 evalBezierPatch(vector<vector<V3>> &coords, float u, float v) {
+V3 eval_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
     ans.x = 0;
     ans.y = 0;
@@ -120,16 +135,23 @@ V3 evalBezierPatch(vector<vector<V3>> &coords, float u, float v) {
             float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
             float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
 
-            ans = ans + (coords[i][j].x * ubinomal * vbinomal);
+            ans = ans + (coords[i][j] * ubinomal * vbinomal);
         }
     }
 
     return ans;
 }
 
+float deriv_product_rule(int n, int k, float t) {
+    float left_product_rule =
+        -(n - k) * std::pow(1 - t, n - k - 1) * std::pow(t, k);
+    float right_product_rule = k * std::pow(t, k - 1) * std::pow(1 - t, n - k);
+    return left_product_rule + right_product_rule;
+}
+
 // https://www.scratchapixel.com/lessons/geometry/bezier-curve-rendering-utah-teapot/bezier-surface.html
 // https://www.scratchapixel.com/lessons/geometry/bezier-curve-rendering-utah-teapot/bezier-patch-normal.html
-V3 duBezierPatch(vector<vector<V3>> &coords, float u, float v) {
+V3 du_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
     ans.x = 0;
     ans.y = 0;
@@ -140,26 +162,20 @@ V3 duBezierPatch(vector<vector<V3>> &coords, float u, float v) {
     for (int i = 0; i <= m; ++i) {
         float ucoef = factorial(m) / (factorial(i) * factorial(m - i));
         // float ubinomal = ucoef * std::pow(1 - u, m - i) * std::pow(u, i);
-        // (1 - u) ^ (m - i)
-        float left_product_rule =
-            -(m - i) * std::pow(1 - u, std::min(m - i - 1, 0)) * std::pow(u, i);
-        // u^i
-        float right_product_rule =
-            (m - i) * std::pow(u, std::min(i - 1, 0)) * std::pow(1 - u, m - i);
-        float dubinomal = ucoef * (left_product_rule + right_product_rule);
+        float dubinomal = ucoef * deriv_product_rule(m, i, u);
 
         for (int j = 0; j <= n; ++j) {
             float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
             float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
 
-            ans = ans + (coords[i][j].x * dubinomal * vbinomal);
+            ans = ans + (coords[i][j] * dubinomal * vbinomal);
         }
     }
 
     return ans;
 }
 
-V3 dvBezierPatch(vector<vector<V3>> &coords, float u, float v) {
+V3 dv_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
     ans.x = 0;
     ans.y = 0;
@@ -174,22 +190,24 @@ V3 dvBezierPatch(vector<vector<V3>> &coords, float u, float v) {
         for (int j = 0; j <= n; ++j) {
             float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
             // float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
-            // (1 - v) ^ (n - j)
-            float left_product_rule = -(n - j) *
-                                      std::pow(1 - v, std::min(n - j - 1, 0)) *
-                                      std::pow(v, j);
-            // v^j
-            float right_product_rule = (n - j) *
-                                       std::pow(v, std::min(j - 1, 0)) *
-                                       std::pow(1 - v, n - j);
-            float dvbinomal = vcoef * (left_product_rule + right_product_rule);
+            float dvbinomal = vcoef * deriv_product_rule(n, j, v);
 
-            ans = ans + (coords[i][j].x * ubinomal * dvbinomal);
+            ans = ans + (coords[i][j] * ubinomal * dvbinomal);
         }
     }
 
     return ans;
 }
+
+V3 cross_product(V3 a, V3 b) {
+    V3 ans;
+    ans.x = a.y * b.z - a.z * b.y;
+    ans.y = a.z * b.x - a.x * b.z;
+    ans.z = a.x * b.y - a.y * b.x;
+    return ans;
+}
+
+V3 normalize(V3 v) { return v / -std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
 int render_direct::render_bezier_curve(const string &vertex_type, int degree,
                                        const vector<float> &vertex) {
@@ -213,7 +231,7 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
     float interval_size = 1.0 / n_divisions;
     vector<V3> new_coords;
     while (t < 1) {
-        new_coords.push_back(evalBezierCurve(coords, t));
+        new_coords.push_back(eval_bezier_curve(coords, t));
         t += interval_size;
     }
 
@@ -276,17 +294,24 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     }
 
     vector<vector<V3>> new_coords;
+    vector<vector<V3>> new_coords_normals;
     float interval_size = 1.0 / n_divisions;
     float u = 0;
     while (u < 1) {
         vector<V3> new_coords_rows;
+        vector<V3> new_coords_rows_normals;
         float v = 0;
         while (v < 1) {
-            new_coords_rows.push_back(evalBezierPatch(coords, u, v));
+            new_coords_rows.push_back(eval_bezier_patch(coords, u, v));
+            new_coords_rows_normals.push_back(normalize(cross_product(
+                du_bezier_patch(coords, u, v), dv_bezier_patch(coords, u, v))));
+
             v += interval_size;
         }
 
         new_coords.push_back(new_coords_rows);
+        new_coords_normals.push_back(new_coords_rows_normals);
+
         u += interval_size;
     }
 
@@ -307,14 +332,15 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
                 a.coord[2] = points[k].z;
                 a.coord[3] = 1.0;
                 a.coord[4] = 1.0;
+                a.coord[5] = 1.0;
 
                 attrs.push_back(a);
             }
 
             // https://www.cs.cmu.edu/~fp/courses/02-graphics/asst4/solution/asst4-sol.pdf
-            // poly_normal[0] =
-            // poly_normal[1] =
-            // poly_normal[2] =
+            poly_normal[0] = new_coords_normals[i][j].x;
+            poly_normal[1] = new_coords_normals[i][j].y;
+            poly_normal[2] = new_coords_normals[i][j].z;
 
             // CC dir
             poly_pipeline(attrs[0], MOVE);
