@@ -7,4 +7,4 @@ proj3: proj3.o
 
 clean:
 	rm -f *.o proj3
-	rm rd_view
+	rm rdv

@@ -18,6 +18,13 @@ struct V3 {
         ans.z = this->z + coord.z;
         return ans;
     }
+    V3 operator+(float c) {
+        V3 ans;
+        ans.x = this->x + c;
+        ans.y = this->y + c;
+        ans.z = this->z + c;
+        return ans;
+    }
     V3 operator-(V3 coord) {
         V3 ans;
         ans.y = this->y - coord.y;
@@ -75,16 +82,39 @@ vector<Vcolor> get_colors(const vector<float> &vertex) {
     return colors;
 }
 
-V3 decastlejau(vector<V3> &coords, float t) {
-    int n = coords.size();
-    while (n > 1) {
-        for (int i = 0; i < n - 1; i++) {
-            coords[i] = coords[i] + (coords[i + 1] - coords[i]) * t;
-        }
-        n -= 1;
-    }
+// V3 decastlejau(vector<V3> &coords, float t) {
+//     int n = coords.size();
+//     while (n > 1) {
+//         for (int i = 0; i < n - 1; ++i) {
+//             coords[i] = coords[i] + (coords[i + 1] - coords[i]) * t;
+//         }
+//         n -= 1;
+//     }
 
-    return coords[0];
+//     return coords[0];
+// }
+
+int factorial(int n) {
+    int result = 1;
+    for (int i = 2; i <= n; ++i) {
+        result *= i;
+    }
+    return result;
+}
+
+// https://www.scratchapixel.com/lessons/geometry/bezier-curve-rendering-utah-teapot/bezier-surface.html
+V3 evalBezierCurve(vector<V3> &coords, float t) {
+    V3 ans;
+    ans.x = 0;
+    ans.y = 0;
+    ans.z = 0;
+    int n = coords.size() - 1;
+    for (int k = 0; k <= n; ++k) {
+        float coef = factorial(n) / (factorial(k) * factorial(n - k));
+        float binomal = coef * std::pow(1 - t, n - k) * std::pow(t, k);
+        ans = ans + (coords[k] * binomal);
+    }
+    return ans;
 }
 
 int render_direct::render_bezier_curve(const string &vertex_type, int degree,
@@ -96,7 +126,6 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
     if (err) return err;
 
     vector<V3> coords = get_coords(vertex);
-
     if (coords.size() == 0) {
         return 0;
     }
@@ -107,11 +136,11 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
     float interval_size = 1.0 / n_divisions;
     vector<V3> newcoords;
     while (t < 1) {
-        newcoords.push_back(decastlejau(coords, t));
+        newcoords.push_back(evalBezierCurve(coords, t));
         t += interval_size;
     }
 
-    for (int i = 0; i < (int)newcoords.size() - 1; i++) {
+    for (int i = 0; i < (int)newcoords.size() - 1; ++i) {
         attr_point s;
         s.coord[0] = newcoords[i].x;
         s.coord[1] = newcoords[i].y;
@@ -158,45 +187,62 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     vector<Vcolor> colors = get_colors(vertex);
 
     vector<vector<V3> > coords;
-    for (int i = 0; i < u_degree + 1; i++) {
+    for (int i = 0; i < u_degree + 1; ++i) {
         vector<V3> c;
-        for (int j = 0; j < v_degree + 1; j++) {
+        for (int j = 0; j < v_degree + 1; ++j) {
             c.push_back(pre_coords[i * (v_degree + 1) + j]);
         }
         coords.push_back(c);
     }
 
-    float t = 0;  // t = 0 is coords[0] and t = 1 is coords[coords.size() - 1]
-    float interval_size = 1.0 / n_divisions;
-    vector<V3> newcoords;
     // while (t < 1) {
     //     newcoords.push_back(decastlejau(coords, t));
     //     t += interval_size;
     // }
+    float interval_size = 1.0 / n_divisions;
+    float u = 0;
+    while (u < 1) {
+        float v = 0;
 
-    for (int i = 0; i < (int)newcoords.size() - 1; i++) {
-        attr_point s;
-        s.coord[0] = newcoords[i].x;
-        s.coord[1] = newcoords[i].y;
-        s.coord[2] = newcoords[i].z;
-        s.coord[3] = 1.0;  // required
-        s.coord[4] = 1.0;  // required
-
-        // color ????
-        // s.coord[5] = 0.5;
-        // s.coord[6] = 0.5;
-        // s.coord[7] = 0.5;
-
-        attr_point e;
-        e.coord[0] = newcoords[i + 1].x;
-        e.coord[1] = newcoords[i + 1].y;
-        e.coord[2] = newcoords[i + 1].z;
-        e.coord[3] = 1.0;  // required
-        e.coord[4] = 1.0;  // required
-
-        line_pipeline(s, MOVE);
-        line_pipeline(e, DRAW);
+        vector<V3> ucoords;
+        for (int i = 0; i < pre_coords.size(); ++i) {
+            ucoords.push_back(pre_coords[i]);
+        }
+        evalBezierCurve(ucoords, u);
+        while (v < 1) {
+            vector<V3> vcoords;
+            for (int i = 0; i < pre_coords.size(); ++i) {
+                vcoords.push_back(pre_coords[i]);
+            }
+            evalBezierCurve(vcoords, v);
+            v += interval_size;
+        }
+        u += interval_size;
     }
+
+    // for (int i = 0; i < (int)newcoords.size() - 1; ++i) {
+    //     attr_point s;
+    //     s.coord[0] = newcoords[i].x;
+    //     s.coord[1] = newcoords[i].y;
+    //     s.coord[2] = newcoords[i].z;
+    //     s.coord[3] = 1.0;  // required
+    //     s.coord[4] = 1.0;  // required
+
+    //     // color ????
+    //     // s.coord[5] = 0.5;
+    //     // s.coord[6] = 0.5;
+    //     // s.coord[7] = 0.5;
+
+    //     attr_point e;
+    //     e.coord[0] = newcoords[i + 1].x;
+    //     e.coord[1] = newcoords[i + 1].y;
+    //     e.coord[2] = newcoords[i + 1].z;
+    //     e.coord[3] = 1.0;  // required
+    //     e.coord[4] = 1.0;  // required
+
+    //     line_pipeline(s, MOVE);
+    //     line_pipeline(e, DRAW);
+    // }
 
     render_m_attr.add_normal();
     render_m_attr.add_shading_offset();
