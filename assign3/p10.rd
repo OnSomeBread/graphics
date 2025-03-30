@@ -1,4 +1,4 @@
-Display "Patch Test" "Screen" "rgbsingle"
+Display "Patch Test" "Screen" "rgbdouble"
 
 CameraEye 0 -20 20
 CameraUp 0 0 1
@@ -11,7 +11,7 @@ MapLoad "grid.ppm" "grid"
 
 WorldBegin
 
-#OptionBool "Interpolate" off
+OptionBool "Interpolate" off
 
 OptionReal "Divisions" 10
 

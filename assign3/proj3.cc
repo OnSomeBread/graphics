@@ -147,6 +147,9 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
     }
 
     vector<Vcolor> colors = get_colors(vertex);
+    if (colors.size() != 0) {
+        render_m_attr.add_color();
+    }
 
     float t = 0;  // t = 0 is coords[0] and t = 1 is coords[coords.size() - 1]
     float interval_size = 1.0 / n_divisions;
@@ -201,12 +204,15 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     }
 
     vector<Vcolor> colors = get_colors(vertex);
+    if (colors.size() != 0) {
+        render_m_attr.add_color();
+    }
 
     vector<vector<V3>> coords;
-    for (int i = 0; i < u_degree + 1; ++i) {
+    for (int i = 0; i < v_degree + 1; ++i) {
         vector<V3> c;
-        for (int j = 0; j < v_degree + 1; ++j) {
-            c.push_back(pre_coords[i * (v_degree + 1) + j]);
+        for (int j = 0; j < u_degree + 1; ++j) {
+            c.push_back(pre_coords[i * (u_degree + 1) + j]);
         }
         coords.push_back(c);
     }
@@ -243,11 +249,11 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
                 a.coord[2] = points[k].z;
                 a.coord[3] = 1.0;
                 a.coord[4] = 1.0;
-                a.coord[5] = 1.0;
 
                 attrs.push_back(a);
             }
 
+            // https://www.cs.cmu.edu/~fp/courses/02-graphics/asst4/solution/asst4-sol.pdf
             // poly_normal[0] =
             // poly_normal[1] =
             // poly_normal[2] =
@@ -260,7 +266,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
         }
     }
 
-    render_m_attr.add_normal();
+    // render_m_attr.add_normal();
     render_m_attr.add_shading_offset();
 
     return 0;
