@@ -90,7 +90,6 @@ int factorial(int n) {
     return result;
 }
 
-// https://www.scratchapixel.com/lessons/geometry/bezier-curve-rendering-utah-teapot/bezier-surface.html
 V3 evalBezierCurve(vector<V3> &coords, float t) {
     V3 ans;
     ans.x = 0;
@@ -106,9 +105,10 @@ V3 evalBezierCurve(vector<V3> &coords, float t) {
 }
 
 V3 evalBezierPatch(vector<vector<V3>> &coords, float u, float v) {
-    double x = 0;
-    double y = 0;
-    double z = 0;
+    V3 ans;
+    ans.x = 0;
+    ans.y = 0;
+    ans.z = 0;
     int m = coords.size() - 1;
     int n = coords[0].size() - 1;
 
@@ -120,16 +120,74 @@ V3 evalBezierPatch(vector<vector<V3>> &coords, float u, float v) {
             float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
             float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
 
-            x += (coords[i][j].x * ubinomal * vbinomal);
-            y += (coords[i][j].y * ubinomal * vbinomal);
-            z += (coords[i][j].z * ubinomal * vbinomal);
+            ans = ans + (coords[i][j].x * ubinomal * vbinomal);
         }
     }
 
+    return ans;
+}
+
+// https://www.scratchapixel.com/lessons/geometry/bezier-curve-rendering-utah-teapot/bezier-surface.html
+// https://www.scratchapixel.com/lessons/geometry/bezier-curve-rendering-utah-teapot/bezier-patch-normal.html
+V3 duBezierPatch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
-    ans.x = x;
-    ans.y = y;
-    ans.z = z;
+    ans.x = 0;
+    ans.y = 0;
+    ans.z = 0;
+    int m = coords.size() - 1;
+    int n = coords[0].size() - 1;
+
+    for (int i = 0; i <= m; ++i) {
+        float ucoef = factorial(m) / (factorial(i) * factorial(m - i));
+        // float ubinomal = ucoef * std::pow(1 - u, m - i) * std::pow(u, i);
+        // (1 - u) ^ (m - i)
+        float left_product_rule =
+            -(m - i) * std::pow(1 - u, std::min(m - i - 1, 0)) * std::pow(u, i);
+        // u^i
+        float right_product_rule =
+            (m - i) * std::pow(u, std::min(i - 1, 0)) * std::pow(1 - u, m - i);
+        float dubinomal = ucoef * (left_product_rule + right_product_rule);
+
+        for (int j = 0; j <= n; ++j) {
+            float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
+            float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
+
+            ans = ans + (coords[i][j].x * dubinomal * vbinomal);
+        }
+    }
+
+    return ans;
+}
+
+V3 dvBezierPatch(vector<vector<V3>> &coords, float u, float v) {
+    V3 ans;
+    ans.x = 0;
+    ans.y = 0;
+    ans.z = 0;
+    int m = coords.size() - 1;
+    int n = coords[0].size() - 1;
+
+    for (int i = 0; i <= m; ++i) {
+        float ucoef = factorial(m) / (factorial(i) * factorial(m - i));
+        float ubinomal = ucoef * std::pow(1 - u, m - i) * std::pow(u, i);
+
+        for (int j = 0; j <= n; ++j) {
+            float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
+            // float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
+            // (1 - v) ^ (n - j)
+            float left_product_rule = -(n - j) *
+                                      std::pow(1 - v, std::min(n - j - 1, 0)) *
+                                      std::pow(v, j);
+            // v^j
+            float right_product_rule = (n - j) *
+                                       std::pow(v, std::min(j - 1, 0)) *
+                                       std::pow(1 - v, n - j);
+            float dvbinomal = vcoef * (left_product_rule + right_product_rule);
+
+            ans = ans + (coords[i][j].x * ubinomal * dvbinomal);
+        }
+    }
+
     return ans;
 }
 
@@ -266,7 +324,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
         }
     }
 
-    // render_m_attr.add_normal();
+    render_m_attr.add_normal();
     render_m_attr.add_shading_offset();
 
     return 0;
