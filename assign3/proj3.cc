@@ -117,6 +117,27 @@ V3 evalBezierCurve(vector<V3> &coords, float t) {
     return ans;
 }
 
+V3 evalBezierPatch(vector<vector<V3>> &coords, float u, float v) {
+    V3 ans;
+    ans.x = 0;
+    ans.y = 0;
+    ans.z = 0;
+    int m = coords.size();
+    int n = coords[0].size();
+
+    for (int i = 0; i < m; ++i) {
+        float ucoef = factorial(m) / (factorial(i) * factorial(m - i));
+        float ubinomal = ucoef * std::pow(1 - u, m - i) * std::pow(u, i);
+
+        for (int j = 0; j < n; ++j) {
+            float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
+            float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
+            ans = ans + (coords[i][j] * ubinomal * vbinomal);
+        }
+    }
+    return ans;
+}
+
 int render_direct::render_bezier_curve(const string &vertex_type, int degree,
                                        const vector<float> &vertex) {
     data_m_attr.clear();
@@ -186,39 +207,27 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
 
     vector<Vcolor> colors = get_colors(vertex);
 
-    // NEEDED FOR UV OPTIMIZATION
-    // vector<vector<V3> > coords;
-    // for (int i = 0; i < u_degree + 1; ++i) {
-    //     vector<V3> c;
-    //     for (int j = 0; j < v_degree + 1; ++j) {
-    //         c.push_back(pre_coords[i * (v_degree + 1) + j]);
-    //     }
-    //     coords.push_back(c);
-    // }
+    vector<vector<V3>> coords;
+    for (int i = 0; i < u_degree + 1; ++i) {
+        vector<V3> c;
+        for (int j = 0; j < v_degree + 1; ++j) {
+            c.push_back(pre_coords[i * (v_degree + 1) + j]);
+        }
+        coords.push_back(c);
+    }
 
-    vector<vector<V3> > new_coords;
+    vector<vector<V3>> new_coords;
     float interval_size = 1.0 / n_divisions;
     float u = 0;
     while (u < 1) {
         float v = 0;
 
         vector<V3> new_coords_rows;
-
-        // FIND A BETTER WAY TO HANDLE UCOORDS AND VCOORDS
-        vector<V3> ucoords;
-        for (int i = 0; i < pre_coords.size(); ++i) {
-            ucoords.push_back(pre_coords[i]);
-        }
-
-        V3 up = evalBezierCurve(ucoords, u);
         while (v < 1) {
-            vector<V3> vcoords;
-            for (int i = 0; i < pre_coords.size(); ++i) {
-                vcoords.push_back(pre_coords[i]);
-            }
-            new_coords_rows.push_back(evalBezierCurve(vcoords, v) * up);
+            new_coords_rows.push_back(evalBezierPatch(coords, u, v));
             v += interval_size;
         }
+
         new_coords.push_back(new_coords_rows);
         u += interval_size;
     }
@@ -235,14 +244,19 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
             vector<attr_point> attrs;
             for (int k = 0; k < (int)points.size(); ++k) {
                 attr_point a;
-                a.coord[0] = points[i].x;
-                a.coord[1] = points[i].y;
-                a.coord[2] = points[i].z;
+                a.coord[0] = points[k].x;
+                a.coord[1] = points[k].y;
+                a.coord[2] = points[k].z;
                 a.coord[3] = 1.0;
                 a.coord[4] = 1.0;
+                a.coord[5] = 1.0;
+
+                // poly_normal[0] =
+
                 attrs.push_back(a);
             }
 
+            // CC dir
             poly_pipeline(attrs[0], MOVE);
             poly_pipeline(attrs[2], MOVE);
             poly_pipeline(attrs[3], MOVE);
