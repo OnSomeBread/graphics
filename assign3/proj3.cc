@@ -82,18 +82,6 @@ vector<Vcolor> get_colors(const vector<float> &vertex) {
     return colors;
 }
 
-// V3 decastlejau(vector<V3> &coords, float t) {
-//     int n = coords.size();
-//     while (n > 1) {
-//         for (int i = 0; i < n - 1; ++i) {
-//             coords[i] = coords[i] + (coords[i + 1] - coords[i]) * t;
-//         }
-//         n -= 1;
-//     }
-
-//     return coords[0];
-// }
-
 int factorial(int n) {
     int result = 1;
     for (int i = 2; i <= n; ++i) {
@@ -118,23 +106,30 @@ V3 evalBezierCurve(vector<V3> &coords, float t) {
 }
 
 V3 evalBezierPatch(vector<vector<V3>> &coords, float u, float v) {
-    V3 ans;
-    ans.x = 0;
-    ans.y = 0;
-    ans.z = 0;
-    int m = coords.size();
-    int n = coords[0].size();
+    double x = 0;
+    double y = 0;
+    double z = 0;
+    int m = coords.size() - 1;
+    int n = coords[0].size() - 1;
 
-    for (int i = 0; i < m; ++i) {
+    for (int i = 0; i <= m; ++i) {
         float ucoef = factorial(m) / (factorial(i) * factorial(m - i));
         float ubinomal = ucoef * std::pow(1 - u, m - i) * std::pow(u, i);
 
-        for (int j = 0; j < n; ++j) {
+        for (int j = 0; j <= n; ++j) {
             float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
             float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
-            ans = ans + (coords[i][j] * ubinomal * vbinomal);
+
+            x += (coords[i][j].x * ubinomal * vbinomal);
+            y += (coords[i][j].y * ubinomal * vbinomal);
+            z += (coords[i][j].z * ubinomal * vbinomal);
         }
     }
+
+    V3 ans;
+    ans.x = x;
+    ans.y = y;
+    ans.z = z;
     return ans;
 }
 
@@ -220,9 +215,8 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     float interval_size = 1.0 / n_divisions;
     float u = 0;
     while (u < 1) {
-        float v = 0;
-
         vector<V3> new_coords_rows;
+        float v = 0;
         while (v < 1) {
             new_coords_rows.push_back(evalBezierPatch(coords, u, v));
             v += interval_size;
@@ -234,7 +228,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
 
     // draw the bezier patch
     for (int i = 0; i < (int)new_coords.size() - 1; ++i) {
-        for (int j = 0; j < (int)new_coords[i].size() - 1; j++) {
+        for (int j = 0; j < (int)new_coords[i].size() - 1; ++j) {
             vector<V3> points;
             points.push_back(new_coords[i][j]);
             points.push_back(new_coords[i + 1][j]);
@@ -251,10 +245,12 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
                 a.coord[4] = 1.0;
                 a.coord[5] = 1.0;
 
-                // poly_normal[0] =
-
                 attrs.push_back(a);
             }
+
+            // poly_normal[0] =
+            // poly_normal[1] =
+            // poly_normal[2] =
 
             // CC dir
             poly_pipeline(attrs[0], MOVE);

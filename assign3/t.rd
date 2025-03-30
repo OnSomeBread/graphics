@@ -6,8 +6,8 @@ Background 0.6 0.7 0.8
 
 CameraUp 0 0 1
 CameraAt 3 0 3
-CameraEye 3 -7 3
-CameraFOV 90
+CameraEye 4 -30 5
+CameraFOV 30
 
 ObjectBegin "Axis"
 Color 1 0 0
