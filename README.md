@@ -11,7 +11,7 @@ usage ./proj2 input_file output_file surfacelvl<br>
 
 to make rd_file all of the .dat files have rows, cols, planes = 20, 20, 20<br>
 ./cview rows cols planes output_file > output.rd<br>
-
+tests below are from file mc1.dat which is of 1 spherical field where mc2.dat is 2 spherical fields and mc3.dat is 4 spherical fields <br>
 No Linear Interpolation and no Normals<br>
 <img src="assign_gifs/sphere_no_lerp_no_normals.gif" width="450" /><br><br>
 Linear Interpolation and no Normals<br>
