@@ -149,8 +149,6 @@ float deriv_product_rule(int n, int k, float t) {
     return left_product_rule + right_product_rule;
 }
 
-// https://www.scratchapixel.com/lessons/geometry/bezier-curve-rendering-utah-teapot/bezier-surface.html
-// https://www.scratchapixel.com/lessons/geometry/bezier-curve-rendering-utah-teapot/bezier-patch-normal.html
 V3 du_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
     ans.x = 0;
@@ -228,7 +226,7 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
     }
 
     float t = 0;  // t = 0 is coords[0] and t = 1 is coords[coords.size() - 1]
-    float interval_size = 1.0 / n_divisions;
+    float interval_size = 1.0 / (n_divisions + 1);
     vector<V3> new_coords;
     while (t < 1) {
         new_coords.push_back(eval_bezier_curve(coords, t));
@@ -295,7 +293,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
 
     vector<vector<V3>> new_coords;
     vector<vector<V3>> new_coords_normals;
-    float interval_size = 1.0 / n_divisions;
+    float interval_size = 1.0 / (n_divisions + 1);
     float u = 0;
     while (u < 1) {
         vector<V3> new_coords_rows;
@@ -337,7 +335,6 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
                 attrs.push_back(a);
             }
 
-            // https://www.cs.cmu.edu/~fp/courses/02-graphics/asst4/solution/asst4-sol.pdf
             poly_normal[0] = new_coords_normals[i][j].x;
             poly_normal[1] = new_coords_normals[i][j].y;
             poly_normal[2] = new_coords_normals[i][j].z;
