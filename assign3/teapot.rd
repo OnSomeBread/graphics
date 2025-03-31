@@ -658,6 +658,8 @@ Background 0.0 0.0 0.0
 
 WorldBegin
 
+#OptionReal "Divisions" 200
+
 FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0
 FarLight 1.0 0.0 -1.0 1.0 1.0 1.0 1.0
 
