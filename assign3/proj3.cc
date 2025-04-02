@@ -146,8 +146,16 @@ float deriv_product_rule(int n, int k, float t) {
     float left_product_rule =
         -(n - k) * std::pow(1 - t, n - k - 1) * std::pow(t, k);
     float right_product_rule = k * std::pow(t, k - 1) * std::pow(1 - t, n - k);
-    if (std::isnan(left_product_rule) || std::isnan(right_product_rule)) {
+
+    // YES ALL IF STATEMENTS HERE ARE NECESSARY
+    if (std::isnan(left_product_rule) && std::isnan(right_product_rule)) {
         return 0;
+    }
+    if (std::isnan(left_product_rule)) {
+        return right_product_rule;
+    }
+    if (std::isnan(right_product_rule)) {
+        return left_product_rule;
     }
     return left_product_rule + right_product_rule;
 }
@@ -213,9 +221,15 @@ V3 cross_product(V3 a, V3 b) {
 
 V3 normalize(V3 v) { return v / -std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
-V3 avg_4_normal_vectors(V3 v1, V3 v2, V3 v3, V3 v4) {
-    V3 avg = v1 + v2 + v3 + v4;
-    avg = avg / -4;
+V3 avg_normal_vectors(vector<V3> &norms) {
+    V3 avg;
+    avg.x = 0;
+    avg.y = 0;
+    avg.z = 0;
+    for (int i = 0; i < (int)norms.size(); ++i) {
+        avg = avg + norms[i];
+    }
+    avg = avg / -(int)norms.size();
     return normalize(avg);
 }
 
@@ -299,7 +313,10 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     if (colors.size() != 0) {
         render_m_attr.add_color();
     }
+    // if (render_m_attr.normal_flag) {
     render_m_attr.add_normal();
+    //}
+
     render_m_attr.add_shading_offset();
 
     vector<vector<V3>> coords;
@@ -367,10 +384,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
             }
 
             if (render_m_attr.normal_flag) {
-                V3 avg = avg_4_normal_vectors(new_coords_normals[i][j],
-                                              new_coords_normals[i + 1][j],
-                                              new_coords_normals[i][j + 1],
-                                              new_coords_normals[i + 1][j + 1]);
+                V3 avg = avg_normal_vectors(norms);
 
                 poly_normal[0] = avg.x;
                 poly_normal[1] = avg.y;
