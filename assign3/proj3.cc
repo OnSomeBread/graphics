@@ -146,6 +146,9 @@ float deriv_product_rule(int n, int k, float t) {
     float left_product_rule =
         -(n - k) * std::pow(1 - t, n - k - 1) * std::pow(t, k);
     float right_product_rule = k * std::pow(t, k - 1) * std::pow(1 - t, n - k);
+    if (std::isnan(left_product_rule) || std::isnan(right_product_rule)) {
+        return 0;
+    }
     return left_product_rule + right_product_rule;
 }
 
@@ -210,6 +213,12 @@ V3 cross_product(V3 a, V3 b) {
 
 V3 normalize(V3 v) { return v / -std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
+V3 avg_4_normal_vectors(V3 v1, V3 v2, V3 v3, V3 v4) {
+    V3 avg = v1 + v2 + v3 + v4;
+    avg = avg / -4;
+    return normalize(avg);
+}
+
 int render_direct::render_bezier_curve(const string &vertex_type, int degree,
                                        const vector<float> &vertex) {
     data_m_attr.clear();
@@ -227,6 +236,8 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
     if (colors.size() != 0) {
         render_m_attr.add_color();
     }
+
+    render_m_attr.add_shading_offset();
 
     float t = 0;  // t = 0 is coords[0] and t = 1 is coords[coords.size() - 1]
     float interval_size = 1.0 / (n_divisions + 1);
@@ -246,17 +257,6 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
         s.coord[3] = 1.0;  // required
         s.coord[4] = 1.0;  // required
 
-        // color ????
-        // s.coord[render_m_attr.color] = 1;
-        // s.coord[render_m_attr.color + 1] = 1;
-        // s.coord[render_m_attr.color + 2] = 1;
-        // s.coord[5] = 1;
-        // s.coord[6] = 1;
-        // s.coord[7] = 1;
-        // s.coord[8] = 1;
-        // s.coord[9] = 1;
-        // s.coord[10] = 1;
-
         attr_point e;
         e.coord[0] = new_coords[i + 1].x;
         e.coord[1] = new_coords[i + 1].y;
@@ -264,11 +264,18 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
         e.coord[3] = 1.0;
         e.coord[4] = 1.0;
 
+        if (colors.size() != 0) {
+            s.coord[render_m_attr.color] = new_colors[i].x;
+            s.coord[render_m_attr.color + 1] = new_colors[i].y;
+            s.coord[render_m_attr.color + 2] = new_colors[i].z;
+            e.coord[render_m_attr.color] = new_colors[i + 1].x;
+            e.coord[render_m_attr.color + 1] = new_colors[i + 1].y;
+            e.coord[render_m_attr.color + 2] = new_colors[i + 1].z;
+        }
+
         line_pipeline(s, MOVE);
         line_pipeline(e, DRAW);
     }
-
-    render_m_attr.add_shading_offset();
 
     return 0;
 }
@@ -292,6 +299,8 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     if (colors.size() != 0) {
         render_m_attr.add_color();
     }
+    render_m_attr.add_normal();
+    render_m_attr.add_shading_offset();
 
     vector<vector<V3>> coords;
     for (int i = 0; i < v_degree + 1; ++i) {
@@ -304,13 +313,13 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
 
     vector<vector<V3>> new_coords;
     vector<vector<V3>> new_coords_normals;
-    float interval_size = 1.0 / (n_divisions + 1);
+    float interval_size = 1.0 / n_divisions;
     float u = 0;
-    while (u < 1) {
+    for (int i = 0; i < n_divisions + 1; ++i) {
         vector<V3> new_coords_rows;
         vector<V3> new_coords_rows_normals;
         float v = 0;
-        while (v < 1) {
+        for (int j = 0; j < n_divisions + 1; ++j) {
             new_coords_rows.push_back(eval_bezier_patch(coords, u, v));
             new_coords_rows_normals.push_back(normalize(cross_product(
                 du_bezier_patch(coords, u, v), dv_bezier_patch(coords, u, v))));
@@ -333,6 +342,12 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
             points.push_back(new_coords[i][j + 1]);
             points.push_back(new_coords[i + 1][j + 1]);
 
+            vector<V3> norms;
+            norms.push_back(new_coords_normals[i][j]);
+            norms.push_back(new_coords_normals[i + 1][j]);
+            norms.push_back(new_coords_normals[i][j + 1]);
+            norms.push_back(new_coords_normals[i + 1][j + 1]);
+
             vector<attr_point> attrs;
             for (int k = 0; k < (int)points.size(); ++k) {
                 attr_point a;
@@ -342,12 +357,25 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
                 a.coord[3] = 1.0;
                 a.coord[4] = 1.0;
 
+                if (render_m_attr.normal_flag) {
+                    a.coord[render_m_attr.normal] = norms[k].x;
+                    a.coord[render_m_attr.normal + 1] = norms[k].y;
+                    a.coord[render_m_attr.normal + 2] = norms[k].z;
+                }
+
                 attrs.push_back(a);
             }
 
-            poly_normal[0] = new_coords_normals[i][j].x;
-            poly_normal[1] = new_coords_normals[i][j].y;
-            poly_normal[2] = new_coords_normals[i][j].z;
+            if (render_m_attr.normal_flag) {
+                V3 avg = avg_4_normal_vectors(new_coords_normals[i][j],
+                                              new_coords_normals[i + 1][j],
+                                              new_coords_normals[i][j + 1],
+                                              new_coords_normals[i + 1][j + 1]);
+
+                poly_normal[0] = avg.x;
+                poly_normal[1] = avg.y;
+                poly_normal[2] = avg.z;
+            }
 
             // CC dir
             poly_pipeline(attrs[0], MOVE);
@@ -356,9 +384,6 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
             poly_pipeline(attrs[1], DRAW);
         }
     }
-
-    render_m_attr.add_normal();
-    render_m_attr.add_shading_offset();
 
     return 0;
 }
