@@ -1,4 +1,4 @@
-Display "Curvetest" "Screen" "rgbsingle"
+Display "Curvetest" "Screen" "rgbdouble"
 
 WorldBegin
 

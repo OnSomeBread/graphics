@@ -8,7 +8,7 @@ using std::vector;
 
 class RenderEngine {
    public:
-    /********************** General functions *******************************/
+    /**********************   General functions *******************************/
 
     virtual int rd_display(const string &name, const string &type,
                            const string &mode);
@@ -24,7 +24,7 @@ class RenderEngine {
     virtual int rd_render_init(void); /* Initialize renderer */
     virtual int rd_render_cleanup(void);
 
-    /********************** Camera ******************************************/
+    /**********************   Camera ******************************************/
 
     virtual int rd_camera_eye(const float eyepoint[3]);
     virtual int rd_camera_at(const float atpoint[3]);
@@ -32,7 +32,8 @@ class RenderEngine {
     virtual int rd_camera_fov(float fov);
     virtual int rd_clipping(float znear, float zfar);
 
-    /********************** Transformations ***********************************/
+    /**********************   Transformations
+     * **********************************/
 
     virtual int rd_translate(const float offset[3]);
     virtual int rd_scale(const float scale_factor[3]);
@@ -43,7 +44,7 @@ class RenderEngine {
     virtual int rd_xform_push(void);
     virtual int rd_xform_pop(void);
 
-    /********************** Geometric Objects *******************************/
+    /**********************   Geometric Objects *******************************/
 
     virtual int rd_bezier_curve(const string &vertex_type, int degree,
                                 const vector<float> &vertex);
@@ -95,7 +96,7 @@ class RenderEngine {
                          float phimax, float thetamax);
     virtual int rd_tube(const float start[3], const float end[3], float radius);
 
-    /********************** Lighting & Shading ***************************/
+    /********************  Lighting & Shading  ***************************/
 
     virtual int rd_background(const float color[]);
     // red, green, blue by default
@@ -129,7 +130,7 @@ class RenderEngine {
     virtual int rd_k_emission(float Ke);
     virtual int rd_k_specular(float Ks);
 
-    /**************************** Mapping ******************************/
+    /****************************   Mapping ******************************/
 
     virtual int rd_map_border(const string &map_type, const string &horizontal,
                               const string &vertical);
@@ -140,7 +141,7 @@ class RenderEngine {
                               const string &inter_level);
     virtual int rd_map(const string &map_type, const string &label);
 
-    /**************************** Options **********************************/
+    /****************************  Options  **********************************/
 
     virtual int rd_option_array(const string &name, int n,
                                 const vector<float> &values);
@@ -282,7 +283,6 @@ struct meta_attribute {
 
     int size;
 
-    // position in which they appear
     int geometry;
     int color;
     int normal;

@@ -63,11 +63,11 @@ struct V3 {
     }
 };
 
-struct Vcolor {
-    float r;
-    float g;
-    float b;
-};
+// struct Vcolor {
+//     float r;
+//     float g;
+//     float b;
+// };
 
 vector<V3> get_coords(const vector<float> &vertex) {
     vector<V3> coords;
@@ -83,14 +83,14 @@ vector<V3> get_coords(const vector<float> &vertex) {
     return coords;
 }
 
-vector<Vcolor> get_colors(const vector<float> &vertex) {
-    vector<Vcolor> colors;
+vector<V3> get_colors(const vector<float> &vertex) {
+    vector<V3> colors;
     if (data_m_attr.color_flag) {
         for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
-            Vcolor color;
-            color.r = vertex[i + data_m_attr.color];
-            color.g = vertex[i + data_m_attr.color + 1];
-            color.b = vertex[i + data_m_attr.color + 2];
+            V3 color;
+            color.x = vertex[i + data_m_attr.color];
+            color.y = vertex[i + data_m_attr.color + 1];
+            color.z = vertex[i + data_m_attr.color + 2];
             colors.push_back(color);
         }
     }
@@ -202,6 +202,9 @@ V3 cross_product(V3 a, V3 b) {
     ans.x = a.y * b.z - a.z * b.y;
     ans.y = a.z * b.x - a.x * b.z;
     ans.z = a.x * b.y - a.y * b.x;
+    // ans.x = a.y * b.z - a.z * b.y;
+    // ans.y = -(a.x * b.z - a.z * b.x);
+    // ans.z = a.x * b.y - a.y * b.x;
     return ans;
 }
 
@@ -220,7 +223,7 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
         return 0;
     }
 
-    vector<Vcolor> colors = get_colors(vertex);
+    vector<V3> colors = get_colors(vertex);
     if (colors.size() != 0) {
         render_m_attr.add_color();
     }
@@ -228,8 +231,10 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
     float t = 0;  // t = 0 is coords[0] and t = 1 is coords[coords.size() - 1]
     float interval_size = 1.0 / (n_divisions + 1);
     vector<V3> new_coords;
+    vector<V3> new_colors;
     while (t < 1) {
         new_coords.push_back(eval_bezier_curve(coords, t));
+        new_colors.push_back(eval_bezier_curve(colors, t));
         t += interval_size;
     }
 
@@ -242,9 +247,15 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
         s.coord[4] = 1.0;  // required
 
         // color ????
-        // s.coord[5] = 0.5;
-        // s.coord[6] = 0.5;
-        // s.coord[7] = 0.5;
+        // s.coord[render_m_attr.color] = 1;
+        // s.coord[render_m_attr.color + 1] = 1;
+        // s.coord[render_m_attr.color + 2] = 1;
+        // s.coord[5] = 1;
+        // s.coord[6] = 1;
+        // s.coord[7] = 1;
+        // s.coord[8] = 1;
+        // s.coord[9] = 1;
+        // s.coord[10] = 1;
 
         attr_point e;
         e.coord[0] = new_coords[i + 1].x;
@@ -277,7 +288,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
         return 0;
     }
 
-    vector<Vcolor> colors = get_colors(vertex);
+    vector<V3> colors = get_colors(vertex);
     if (colors.size() != 0) {
         render_m_attr.add_color();
     }
@@ -330,7 +341,6 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
                 a.coord[2] = points[k].z;
                 a.coord[3] = 1.0;
                 a.coord[4] = 1.0;
-                a.coord[5] = 1.0;
 
                 attrs.push_back(a);
             }

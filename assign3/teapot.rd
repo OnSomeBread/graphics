@@ -654,11 +654,11 @@ CameraUp 0 0 1
 CameraAt 0 0 2
 CameraFOV 15.0
 
-Background 0.0 0.0 0.0
+Background 0.8 0.8 0.8
 
 WorldBegin
 
-#OptionReal "Divisions" 200
+#OptionReal "Divisions" 100
 
 FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0
 FarLight 1.0 0.0 -1.0 1.0 1.0 1.0 1.0
