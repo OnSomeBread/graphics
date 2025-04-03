@@ -3,8 +3,6 @@ usage ./rdv rdfile<br>
 calculated with real surface normals at each point with ∂/∂u(bernstein polynomials) X ∂/∂v(bernstein polynomials)<br>
 the teapot below is only with 10 subdivisions but calculated surface normals fake the smoothness much better than appoximation<br>
 <img src="visualizations/teapot.png" width="500" /><br><br>
-the teapot below is 100 subdivisions
-<img src="visualizations/100subdiv_teapot.png" width="500" /><br><br>
 
 assign 2 - Marching Cubes Algorithm<br>
 usage ./proj2 input_file output_file surfacelvl<br>
