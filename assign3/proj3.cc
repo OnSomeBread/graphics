@@ -46,7 +46,6 @@ struct V3 {
         ans.z = this->z / coord.z;
         return ans;
     }
-
     V3 operator*(float c) {
         V3 ans;
         ans.x = this->x * c;
@@ -63,6 +62,7 @@ struct V3 {
     }
 };
 
+// used by both bezier curves and patches to grab xyz coords from user
 vector<V3> get_coords(const vector<float> &vertex) {
     vector<V3> coords;
     if (data_m_attr.geom_flag) {
@@ -77,6 +77,8 @@ vector<V3> get_coords(const vector<float> &vertex) {
     return coords;
 }
 
+// used by both bezier curves and patches to grab colors from the user for each
+// point
 vector<V3> get_colors(const vector<float> &vertex) {
     vector<V3> colors;
     if (data_m_attr.color_flag) {
@@ -91,6 +93,8 @@ vector<V3> get_colors(const vector<float> &vertex) {
     return colors;
 }
 
+// simple factorial calculation that could be optimized out with faster
+// n_choose_k algo
 int factorial(int n) {
     int result = 1;
     for (int i = 2; i <= n; ++i) {
@@ -99,10 +103,13 @@ int factorial(int n) {
     return result;
 }
 
+// the coefficient for the bernstein calculations
 float n_choose_k(int n, int k) {
     return factorial(n) / (factorial(k) * factorial(n - k));
 }
 
+// bernstein calculation of bezuer curve for a given t
+// uses all control points
 V3 eval_bezier_curve(vector<V3> &coords, float t) {
     V3 ans;
     ans.x = 0;
@@ -117,6 +124,8 @@ V3 eval_bezier_curve(vector<V3> &coords, float t) {
     return ans;
 }
 
+// bernstein calculation of bezier patch for particular u and v
+// uses all control points
 V3 eval_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
     ans.x = 0;
@@ -140,9 +149,12 @@ V3 eval_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     return ans;
 }
 
+// function that both partials use to calculate the derivitive
 float deriv_product_rule(int n, int k, float t) {
+    // left side = (1 - t)^(n - k)
     float left_product_rule =
         -(n - k) * std::pow(1 - t, n - k - 1) * std::pow(t, k);
+    // right side = t^k
     float right_product_rule = k * std::pow(t, k - 1) * std::pow(1 - t, n - k);
 
     // YES ALL IF STATEMENTS HERE ARE NECESSARY
@@ -158,6 +170,7 @@ float deriv_product_rule(int n, int k, float t) {
     return left_product_rule + right_product_rule;
 }
 
+// partial derivative with respect to u of bezier patch calculation
 V3 du_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
     ans.x = 0;
@@ -180,6 +193,7 @@ V3 du_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     return ans;
 }
 
+// partial derivative with respect to v of bezier patch calculation
 V3 dv_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
     ans.x = 0;
@@ -202,6 +216,7 @@ V3 dv_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     return ans;
 }
 
+// vector1 X vector2
 V3 cross_product(V3 a, V3 b) {
     V3 ans;
     ans.x = a.y * b.z - a.z * b.y;
@@ -215,6 +230,7 @@ V3 cross_product(V3 a, V3 b) {
 
 V3 normalize(V3 v) { return v / -std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
+// given any number of normal vectors returns the average of them all
 V3 avg_normal_vectors(vector<V3> &norms) {
     V3 avg;
     avg.x = 0;
@@ -314,6 +330,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
 
     vector<vector<V3>> coords;
     vector<vector<V3>> colors;
+    // put the coords into v_degree + 1 by u_degree + 1 vector for calculating
     for (int i = 0; i < v_degree + 1; ++i) {
         vector<V3> c;
         vector<V3> c2;
@@ -339,8 +356,12 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
         float v = 0;
         for (int j = 0; j < n_divisions + 1; ++j) {
             new_coords_rows.push_back(eval_bezier_patch(coords, u, v));
+            // calculate the normal at same point
+            // normalize(cross_product(partialdu, partialdv))
             new_coords_rows_normals.push_back(normalize(cross_product(
                 du_bezier_patch(coords, u, v), dv_bezier_patch(coords, u, v))));
+
+            // calculated the same way as geometric coords
             new_coords_rows_colors.push_back(eval_bezier_patch(colors, u, v));
 
             v += interval_size;
@@ -360,6 +381,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
             // vector<int> diri = {0, 1, 0, 1};
             // vector<int> dirj = {0, 0, 1, 1};
 
+            // the 4 points that make up current polygon
             vector<V3> points;
             points.push_back(new_coords[i][j]);
             points.push_back(new_coords[i + 1][j]);
@@ -404,6 +426,8 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
                 attrs.push_back(a);
             }
 
+            // take the avg of all 4 norms of a polygon and use that as poly
+            // norm
             if (render_m_attr.normal_flag) {
                 V3 avg = avg_normal_vectors(norms);
 
