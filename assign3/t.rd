@@ -50,13 +50,29 @@ WorldBegin
     AmbientLight 0.6 0.7 0.8 0.5
     FarLight 0 1 -1  1 1 1 0.7
     #PointLight
+#   OptionBool "Interpolate" off
 
     ObjectInstance "Axis"
 
     OptionReal "Divisions" 10
     OptionBool "Control" on
 
-ObjectInstance "Petal"
+    Color 1 1 1
+    #ObjectInstance "Petal"
+
+    Patch "Bezier" "PC"
+      2 2 # biquadratic patch with color - x y z  r g b
+      -0.5 -0.5 -1.0 1.0 0.0 0.0  # Red
+       0.0 -0.5 -0.5 1.0 1.0 0.0  # Yellow
+       0.5 -0.5 -1.0 1.0 1.0 1.0  # White
+       
+      -0.7  0.0  0.0 1.0 0.0 1.0  # Magenta
+       0.0  0.2 -1.0 0.5 0.5 0.5  # Gray
+       0.7  0.0  0.0 0.0 1.0 0.0  # Green
+
+      -0.5  0.5  0.0 1.0 1.0 1.0  # White
+       0.1  0.7  1.0 1.0 1.0 0.0  # Yellow
+       0.5  0.5 -1.0 0.0 1.0 1.0  # Cyan
 
 
 WorldEnd
