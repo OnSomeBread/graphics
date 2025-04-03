@@ -63,12 +63,6 @@ struct V3 {
     }
 };
 
-// struct Vcolor {
-//     float r;
-//     float g;
-//     float b;
-// };
-
 vector<V3> get_coords(const vector<float> &vertex) {
     vector<V3> coords;
     if (data_m_attr.geom_flag) {
@@ -105,6 +99,10 @@ int factorial(int n) {
     return result;
 }
 
+float n_choose_k(int n, int k) {
+    return factorial(n) / (factorial(k) * factorial(n - k));
+}
+
 V3 eval_bezier_curve(vector<V3> &coords, float t) {
     V3 ans;
     ans.x = 0;
@@ -112,8 +110,8 @@ V3 eval_bezier_curve(vector<V3> &coords, float t) {
     ans.z = 0;
     int n = coords.size() - 1;
     for (int k = 0; k <= n; ++k) {
-        float coef = factorial(n) / (factorial(k) * factorial(n - k));
-        float binomal = coef * std::pow(1 - t, n - k) * std::pow(t, k);
+        float binomal =
+            n_choose_k(n, k) * std::pow(1 - t, n - k) * std::pow(t, k);
         ans = ans + (coords[k] * binomal);
     }
     return ans;
@@ -128,12 +126,12 @@ V3 eval_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     int n = coords[0].size() - 1;
 
     for (int i = 0; i <= m; ++i) {
-        float ucoef = factorial(m) / (factorial(i) * factorial(m - i));
-        float ubinomal = ucoef * std::pow(1 - u, m - i) * std::pow(u, i);
+        float ubinomal =
+            n_choose_k(m, i) * std::pow(1 - u, m - i) * std::pow(u, i);
 
         for (int j = 0; j <= n; ++j) {
-            float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
-            float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
+            float vbinomal =
+                n_choose_k(n, j) * std::pow(1 - v, n - j) * std::pow(v, j);
 
             ans = ans + (coords[i][j] * ubinomal * vbinomal);
         }
@@ -169,13 +167,11 @@ V3 du_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     int n = coords[0].size() - 1;
 
     for (int i = 0; i <= m; ++i) {
-        float ucoef = factorial(m) / (factorial(i) * factorial(m - i));
-        // float ubinomal = ucoef * std::pow(1 - u, m - i) * std::pow(u, i);
-        float dubinomal = ucoef * deriv_product_rule(m, i, u);
+        float dubinomal = n_choose_k(m, i) * deriv_product_rule(m, i, u);
 
         for (int j = 0; j <= n; ++j) {
-            float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
-            float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
+            float vbinomal =
+                n_choose_k(n, j) * std::pow(1 - v, n - j) * std::pow(v, j);
 
             ans = ans + (coords[i][j] * dubinomal * vbinomal);
         }
@@ -193,13 +189,11 @@ V3 dv_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     int n = coords[0].size() - 1;
 
     for (int i = 0; i <= m; ++i) {
-        float ucoef = factorial(m) / (factorial(i) * factorial(m - i));
-        float ubinomal = ucoef * std::pow(1 - u, m - i) * std::pow(u, i);
+        float ubinomal =
+            n_choose_k(m, i) * std::pow(1 - u, m - i) * std::pow(u, i);
 
         for (int j = 0; j <= n; ++j) {
-            float vcoef = factorial(n) / (factorial(j) * factorial(n - j));
-            // float vbinomal = vcoef * std::pow(1 - v, n - j) * std::pow(v, j);
-            float dvbinomal = vcoef * deriv_product_rule(n, j, v);
+            float dvbinomal = n_choose_k(n, j) * deriv_product_rule(n, j, v);
 
             ans = ans + (coords[i][j] * ubinomal * dvbinomal);
         }
@@ -309,43 +303,52 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
         return 0;
     }
 
-    vector<V3> colors = get_colors(vertex);
-    if (colors.size() != 0) {
+    vector<V3> pre_colors = get_colors(vertex);
+    if (pre_colors.size() != 0) {
         render_m_attr.add_color();
     }
-    // if (render_m_attr.normal_flag) {
+
     render_m_attr.add_normal();
-    //}
 
     render_m_attr.add_shading_offset();
 
     vector<vector<V3>> coords;
+    vector<vector<V3>> colors;
     for (int i = 0; i < v_degree + 1; ++i) {
         vector<V3> c;
+        vector<V3> c2;
         for (int j = 0; j < u_degree + 1; ++j) {
             c.push_back(pre_coords[i * (u_degree + 1) + j]);
+            if (render_m_attr.color_flag) {
+                c2.push_back(pre_colors[i * (u_degree + 1) + j]);
+            }
         }
         coords.push_back(c);
+        colors.push_back(c2);
     }
 
     vector<vector<V3>> new_coords;
     vector<vector<V3>> new_coords_normals;
+    vector<vector<V3>> new_coords_colors;
     float interval_size = 1.0 / n_divisions;
     float u = 0;
     for (int i = 0; i < n_divisions + 1; ++i) {
         vector<V3> new_coords_rows;
         vector<V3> new_coords_rows_normals;
+        vector<V3> new_coords_rows_colors;
         float v = 0;
         for (int j = 0; j < n_divisions + 1; ++j) {
             new_coords_rows.push_back(eval_bezier_patch(coords, u, v));
             new_coords_rows_normals.push_back(normalize(cross_product(
                 du_bezier_patch(coords, u, v), dv_bezier_patch(coords, u, v))));
+            new_coords_rows_colors.push_back(eval_bezier_patch(colors, u, v));
 
             v += interval_size;
         }
 
         new_coords.push_back(new_coords_rows);
         new_coords_normals.push_back(new_coords_rows_normals);
+        new_coords_colors.push_back(new_coords_rows_colors);
 
         u += interval_size;
     }
@@ -353,6 +356,10 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     // draw the bezier patch
     for (int i = 0; i < (int)new_coords.size() - 1; ++i) {
         for (int j = 0; j < (int)new_coords[i].size() - 1; ++j) {
+            // a new way to handle more flags
+            // vector<int> diri = {0, 1, 0, 1};
+            // vector<int> dirj = {0, 0, 1, 1};
+
             vector<V3> points;
             points.push_back(new_coords[i][j]);
             points.push_back(new_coords[i + 1][j]);
@@ -364,6 +371,14 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
             norms.push_back(new_coords_normals[i + 1][j]);
             norms.push_back(new_coords_normals[i][j + 1]);
             norms.push_back(new_coords_normals[i + 1][j + 1]);
+
+            vector<V3> pcolors;
+            if (render_m_attr.color_flag) {
+                pcolors.push_back(new_coords_colors[i][j]);
+                pcolors.push_back(new_coords_colors[i + 1][j]);
+                pcolors.push_back(new_coords_colors[i][j + 1]);
+                pcolors.push_back(new_coords_colors[i + 1][j + 1]);
+            }
 
             vector<attr_point> attrs;
             for (int k = 0; k < (int)points.size(); ++k) {
@@ -378,6 +393,12 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
                     a.coord[render_m_attr.normal] = norms[k].x;
                     a.coord[render_m_attr.normal + 1] = norms[k].y;
                     a.coord[render_m_attr.normal + 2] = norms[k].z;
+                }
+
+                if (render_m_attr.color_flag) {
+                    a.coord[render_m_attr.color] = pcolors[k].x;
+                    a.coord[render_m_attr.color + 1] = pcolors[k].y;
+                    a.coord[render_m_attr.color + 2] = pcolors[k].z;
                 }
 
                 attrs.push_back(a);
