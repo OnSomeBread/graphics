@@ -7,9 +7,9 @@ using std::cout;
 using std::endl;
 
 struct V3 {
-    float x;
-    float y;
-    float z;
+    float x = 0;
+    float y = 0;
+    float z = 0;
 
     V3 operator+(V3 coord) {
         V3 ans;
@@ -65,14 +65,12 @@ struct V3 {
 // used by both bezier curves and patches to grab xyz coords from user
 vector<V3> get_coords(const vector<float> &vertex) {
     vector<V3> coords;
-    if (data_m_attr.geom_flag) {
-        for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
-            V3 coord;
-            coord.x = vertex[i + data_m_attr.geometry];
-            coord.y = vertex[i + data_m_attr.geometry + 1];
-            coord.z = vertex[i + data_m_attr.geometry + 2];
-            coords.push_back(coord);
-        }
+    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
+        V3 coord;
+        coord.x = vertex[i + data_m_attr.geometry];
+        coord.y = vertex[i + data_m_attr.geometry + 1];
+        coord.z = vertex[i + data_m_attr.geometry + 2];
+        coords.push_back(coord);
     }
     return coords;
 }
@@ -81,14 +79,12 @@ vector<V3> get_coords(const vector<float> &vertex) {
 // point
 vector<V3> get_colors(const vector<float> &vertex) {
     vector<V3> colors;
-    if (data_m_attr.color_flag) {
-        for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
-            V3 color;
-            color.x = vertex[i + data_m_attr.color];
-            color.y = vertex[i + data_m_attr.color + 1];
-            color.z = vertex[i + data_m_attr.color + 2];
-            colors.push_back(color);
-        }
+    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
+        V3 color;
+        color.x = vertex[i + data_m_attr.color];
+        color.y = vertex[i + data_m_attr.color + 1];
+        color.z = vertex[i + data_m_attr.color + 2];
+        colors.push_back(color);
     }
     return colors;
 }
@@ -107,19 +103,22 @@ int factorial(int n) {
 float n_choose_k(int n, int k) {
     return factorial(n) / (factorial(k) * factorial(n - k));
 }
+// float n_choose_k(int n, int k) {
+//     if (k == 0) return 1;
+//     return (n * n_choose_k(n - 1, k - 1)) / k;
+// }
+
+float bernstein(int n, int k, float t) {
+    return n_choose_k(n, k) * std::pow(1 - t, n - k) * std::pow(t, k);
+}
 
 // bernstein calculation of bezuer curve for a given t
 // uses all control points
 V3 eval_bezier_curve(vector<V3> &coords, float t) {
     V3 ans;
-    ans.x = 0;
-    ans.y = 0;
-    ans.z = 0;
     int n = coords.size() - 1;
     for (int k = 0; k <= n; ++k) {
-        float binomal =
-            n_choose_k(n, k) * std::pow(1 - t, n - k) * std::pow(t, k);
-        ans = ans + (coords[k] * binomal);
+        ans = ans + (coords[k] * bernstein(n, k, t));
     }
     return ans;
 }
@@ -128,21 +127,13 @@ V3 eval_bezier_curve(vector<V3> &coords, float t) {
 // uses all control points
 V3 eval_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
-    ans.x = 0;
-    ans.y = 0;
-    ans.z = 0;
     int m = coords.size() - 1;
     int n = coords[0].size() - 1;
 
     for (int i = 0; i <= m; ++i) {
-        float ubinomal =
-            n_choose_k(m, i) * std::pow(1 - u, m - i) * std::pow(u, i);
-
+        float ubinomal = bernstein(m, i, u);
         for (int j = 0; j <= n; ++j) {
-            float vbinomal =
-                n_choose_k(n, j) * std::pow(1 - v, n - j) * std::pow(v, j);
-
-            ans = ans + (coords[i][j] * ubinomal * vbinomal);
+            ans = ans + (coords[i][j] * ubinomal * bernstein(n, j, v));
         }
     }
 
@@ -150,7 +141,7 @@ V3 eval_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
 }
 
 // function that both partials use to calculate the derivitive
-float deriv_product_rule(int n, int k, float t) {
+float deriv_bernstein(int n, int k, float t) {
     // left side = (1 - t)^(n - k)
     float left_product_rule =
         -(n - k) * std::pow(1 - t, n - k - 1) * std::pow(t, k);
@@ -162,31 +153,24 @@ float deriv_product_rule(int n, int k, float t) {
         return 0;
     }
     if (std::isnan(left_product_rule)) {
-        return right_product_rule;
+        return n_choose_k(n, k) * right_product_rule;
     }
     if (std::isnan(right_product_rule)) {
-        return left_product_rule;
+        return n_choose_k(n, k) * left_product_rule;
     }
-    return left_product_rule + right_product_rule;
+    return n_choose_k(n, k) * (left_product_rule + right_product_rule);
 }
 
 // partial derivative with respect to u of bezier patch calculation
 V3 du_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
-    ans.x = 0;
-    ans.y = 0;
-    ans.z = 0;
     int m = coords.size() - 1;
     int n = coords[0].size() - 1;
 
     for (int i = 0; i <= m; ++i) {
-        float dubinomal = n_choose_k(m, i) * deriv_product_rule(m, i, u);
-
+        float dubinomal = deriv_bernstein(m, i, u);
         for (int j = 0; j <= n; ++j) {
-            float vbinomal =
-                n_choose_k(n, j) * std::pow(1 - v, n - j) * std::pow(v, j);
-
-            ans = ans + (coords[i][j] * dubinomal * vbinomal);
+            ans = ans + (coords[i][j] * dubinomal * bernstein(n, j, v));
         }
     }
 
@@ -196,20 +180,13 @@ V3 du_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
 // partial derivative with respect to v of bezier patch calculation
 V3 dv_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
     V3 ans;
-    ans.x = 0;
-    ans.y = 0;
-    ans.z = 0;
     int m = coords.size() - 1;
     int n = coords[0].size() - 1;
 
     for (int i = 0; i <= m; ++i) {
-        float ubinomal =
-            n_choose_k(m, i) * std::pow(1 - u, m - i) * std::pow(u, i);
-
+        float ubinomal = bernstein(m, i, u);
         for (int j = 0; j <= n; ++j) {
-            float dvbinomal = n_choose_k(n, j) * deriv_product_rule(n, j, v);
-
-            ans = ans + (coords[i][j] * ubinomal * dvbinomal);
+            ans = ans + (coords[i][j] * ubinomal * deriv_bernstein(n, j, v));
         }
     }
 
@@ -233,9 +210,6 @@ V3 normalize(V3 v) { return v / -std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 // given any number of normal vectors returns the average of them all
 V3 avg_normal_vectors(vector<V3> &norms) {
     V3 avg;
-    avg.x = 0;
-    avg.y = 0;
-    avg.z = 0;
     for (int i = 0; i < (int)norms.size(); ++i) {
         avg = avg + norms[i];
     }
@@ -243,21 +217,27 @@ V3 avg_normal_vectors(vector<V3> &norms) {
     return normalize(avg);
 }
 
-int render_direct::render_bezier_curve(const string &vertex_type, int degree,
-                                       const vector<float> &vertex) {
+namespace render_direct {
+
+int render_bezier_curve(const string &vertex_type, int degree,
+                        const vector<float> &vertex) {
     data_m_attr.clear();
     int err = data_m_attr.set_data_indices(vertex_type);
     if (err) return err;
     err = render_m_attr.set_render_indices(vertex_type);
     if (err) return err;
 
+    if (!data_m_attr.geom_flag) {
+        return 1;
+    }
+
     vector<V3> coords = get_coords(vertex);
     if (coords.size() == 0) {
-        return 0;
+        return 1;
     }
 
     vector<V3> colors = get_colors(vertex);
-    if (colors.size() != 0) {
+    if (render_m_attr.color_flag) {
         render_m_attr.add_color();
     }
 
@@ -267,47 +247,49 @@ int render_direct::render_bezier_curve(const string &vertex_type, int degree,
     float interval_size = 1.0 / (n_divisions + 1);
     vector<V3> new_coords;
     vector<V3> new_colors;
-    while (t < 1) {
+    for (int i = 0; i < n_divisions + 1; ++i) {
         new_coords.push_back(eval_bezier_curve(coords, t));
         new_colors.push_back(eval_bezier_curve(colors, t));
         t += interval_size;
     }
 
-    for (int i = 0; i < (int)new_coords.size() - 1; ++i) {
+    attr_point start;
+    start.coord[0] = new_coords[0].x;
+    start.coord[1] = new_coords[0].y;
+    start.coord[2] = new_coords[0].z;
+    start.coord[3] = 1.0;
+    start.coord[4] = 1.0;
+
+    if (render_m_attr.color_flag) {
+        start.coord[render_m_attr.color] = new_colors[0].x;
+        start.coord[render_m_attr.color + 1] = new_colors[0].y;
+        start.coord[render_m_attr.color + 2] = new_colors[0].z;
+    }
+    line_pipeline(start, MOVE);
+
+    for (int i = 1; i < (int)new_coords.size(); ++i) {
         attr_point s;
         s.coord[0] = new_coords[i].x;
         s.coord[1] = new_coords[i].y;
         s.coord[2] = new_coords[i].z;
-        s.coord[3] = 1.0;  // required
-        s.coord[4] = 1.0;  // required
+        s.coord[3] = 1.0;
+        s.coord[4] = 1.0;
 
-        attr_point e;
-        e.coord[0] = new_coords[i + 1].x;
-        e.coord[1] = new_coords[i + 1].y;
-        e.coord[2] = new_coords[i + 1].z;
-        e.coord[3] = 1.0;
-        e.coord[4] = 1.0;
-
-        if (colors.size() != 0) {
+        if (render_m_attr.color_flag) {
             s.coord[render_m_attr.color] = new_colors[i].x;
             s.coord[render_m_attr.color + 1] = new_colors[i].y;
             s.coord[render_m_attr.color + 2] = new_colors[i].z;
-            e.coord[render_m_attr.color] = new_colors[i + 1].x;
-            e.coord[render_m_attr.color + 1] = new_colors[i + 1].y;
-            e.coord[render_m_attr.color + 2] = new_colors[i + 1].z;
         }
 
-        line_pipeline(s, MOVE);
-        line_pipeline(e, DRAW);
+        line_pipeline(s, DRAW);
     }
 
     return 0;
 }
 
 // BEZIER PATCH
-int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
-                                       int v_degree,
-                                       const vector<float> &vertex) {
+int render_bezier_patch(const string &vertex_type, int u_degree, int v_degree,
+                        const vector<float> &vertex) {
     data_m_attr.clear();
     int err = data_m_attr.set_data_indices(vertex_type);
     if (err) return err;
@@ -320,7 +302,7 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     }
 
     vector<V3> pre_colors = get_colors(vertex);
-    if (pre_colors.size() != 0) {
+    if (render_m_attr.color_flag) {
         render_m_attr.add_color();
     }
 
@@ -358,11 +340,17 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
             new_coords_rows.push_back(eval_bezier_patch(coords, u, v));
             // calculate the normal at same point
             // normalize(cross_product(partialdu, partialdv))
-            new_coords_rows_normals.push_back(normalize(cross_product(
-                du_bezier_patch(coords, u, v), dv_bezier_patch(coords, u, v))));
+            if (render_m_attr.normal_flag) {
+                new_coords_rows_normals.push_back(
+                    normalize(cross_product(du_bezier_patch(coords, u, v),
+                                            dv_bezier_patch(coords, u, v))));
+            }
 
             // calculated the same way as geometric coords
-            new_coords_rows_colors.push_back(eval_bezier_patch(colors, u, v));
+            if (render_m_attr.color_flag) {
+                new_coords_rows_colors.push_back(
+                    eval_bezier_patch(colors, u, v));
+            }
 
             v += interval_size;
         }
@@ -378,56 +366,37 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
     for (int i = 0; i < (int)new_coords.size() - 1; ++i) {
         for (int j = 0; j < (int)new_coords[i].size() - 1; ++j) {
             // a new way to handle more flags
-            // vector<int> diri = {0, 1, 0, 1};
-            // vector<int> dirj = {0, 0, 1, 1};
-
-            // the 4 points that make up current polygon
-            vector<V3> points;
-            points.push_back(new_coords[i][j]);
-            points.push_back(new_coords[i + 1][j]);
-            points.push_back(new_coords[i][j + 1]);
-            points.push_back(new_coords[i + 1][j + 1]);
-
+            vector<int> di = {0, 1, 0, 1};
+            vector<int> dj = {0, 0, 1, 1};
             vector<V3> norms;
-            norms.push_back(new_coords_normals[i][j]);
-            norms.push_back(new_coords_normals[i + 1][j]);
-            norms.push_back(new_coords_normals[i][j + 1]);
-            norms.push_back(new_coords_normals[i + 1][j + 1]);
-
-            vector<V3> pcolors;
-            if (render_m_attr.color_flag) {
-                pcolors.push_back(new_coords_colors[i][j]);
-                pcolors.push_back(new_coords_colors[i + 1][j]);
-                pcolors.push_back(new_coords_colors[i][j + 1]);
-                pcolors.push_back(new_coords_colors[i + 1][j + 1]);
-            }
-
             vector<attr_point> attrs;
-            for (int k = 0; k < (int)points.size(); ++k) {
+
+            for (int k = 0; k < 4; ++k) {
                 attr_point a;
-                a.coord[0] = points[k].x;
-                a.coord[1] = points[k].y;
-                a.coord[2] = points[k].z;
+                V3 p = new_coords[i + di[k]][j + dj[k]];
+                a.coord[0] = p.x;
+                a.coord[1] = p.y;
+                a.coord[2] = p.z;
                 a.coord[3] = 1.0;
                 a.coord[4] = 1.0;
 
                 if (render_m_attr.normal_flag) {
-                    a.coord[render_m_attr.normal] = norms[k].x;
-                    a.coord[render_m_attr.normal + 1] = norms[k].y;
-                    a.coord[render_m_attr.normal + 2] = norms[k].z;
+                    V3 norm = new_coords_normals[i + di[k]][j + dj[k]];
+                    norms.push_back(norm);
+                    a.coord[render_m_attr.normal] = norm.x;
+                    a.coord[render_m_attr.normal + 1] = norm.y;
+                    a.coord[render_m_attr.normal + 2] = norm.z;
                 }
-
                 if (render_m_attr.color_flag) {
-                    a.coord[render_m_attr.color] = pcolors[k].x;
-                    a.coord[render_m_attr.color + 1] = pcolors[k].y;
-                    a.coord[render_m_attr.color + 2] = pcolors[k].z;
+                    V3 col = new_coords_colors[i + di[k]][j + dj[k]];
+                    a.coord[render_m_attr.color] = col.x;
+                    a.coord[render_m_attr.color + 1] = col.y;
+                    a.coord[render_m_attr.color + 2] = col.z;
                 }
-
                 attrs.push_back(a);
             }
 
-            // take the avg of all 4 norms of a polygon and use that as poly
-            // norm
+            // take the avg of all 4 norms of a poly and use that as polynorm
             if (render_m_attr.normal_flag) {
                 V3 avg = avg_normal_vectors(norms);
 
@@ -446,7 +415,8 @@ int render_direct::render_bezier_patch(const string &vertex_type, int u_degree,
 
     return 0;
 }
-
+}  // namespace render_direct
+// will be implemented later
 int REDirect::rd_sqsphere(float radius, float north, float east, float zmin,
                           float zmax, float thetamax) {
     return 0;
@@ -455,4 +425,22 @@ int REDirect::rd_sqsphere(float radius, float north, float east, float zmin,
 int REDirect::rd_sqtorus(float radius1, float radius2, float north, float east,
                          float phimin, float phimax, float thetamax) {
     return 0;
+}
+
+// used by both bezier curves and patches for weighted values
+vector<float> get_weight(const vector<float> &vertex) {
+    vector<float> weights;
+    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
+        weights.push_back(vertex[i + data_m_attr.weight]);
+    }
+    return weights;
+}
+
+// used by both bezier curves and patches for weighted values
+vector<float> get_opacity(const vector<float> &vertex) {
+    vector<float> opacity;
+    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
+        opacity.push_back(vertex[i + data_m_attr.opacity]);
+    }
+    return opacity;
 }

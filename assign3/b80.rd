@@ -4,7 +4,7 @@ WorldBegin
 
 Color 0.5 0.5 0.5
 
-OptionBool "Control" true
+#OptionBool "Control" on
 OptionReal "Divisions" 80
 
 #Degree 2 curve
@@ -38,8 +38,7 @@ Curve "Bezier" "P"
 
 OptionBool "Control" off
 
-Curve "Bezier" "PC"
-3
+Curve "Bezier" "PC" 3
 -0.5 -0.25 -1.0 1.0 0.0 0.0
 -0.5  0.25 -1.0 1.0 1.0 0.0
  0.5 -0.75 -1.0 1.0 1.0 1.0
