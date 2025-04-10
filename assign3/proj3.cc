@@ -1,93 +1,9 @@
-#include <cmath>
-#include <iostream>
+#include "proj3.h"
 
-#include "cs630.h"
+// #include <iostream>
 
-using std::cout;
-using std::endl;
-
-struct V3 {
-    float x = 0;
-    float y = 0;
-    float z = 0;
-
-    V3 operator+(V3 coord) {
-        V3 ans;
-        ans.x = this->x + coord.x;
-        ans.y = this->y + coord.y;
-        ans.z = this->z + coord.z;
-        return ans;
-    }
-    V3 operator+(float c) {
-        V3 ans;
-        ans.x = this->x + c;
-        ans.y = this->y + c;
-        ans.z = this->z + c;
-        return ans;
-    }
-    V3 operator-(V3 coord) {
-        V3 ans;
-        ans.y = this->y - coord.y;
-        ans.z = this->z - coord.z;
-        ans.x = this->x - coord.x;
-        return ans;
-    }
-    V3 operator*(V3 coord) {
-        V3 ans;
-        ans.x = this->x * coord.x;
-        ans.y = this->y * coord.y;
-        ans.z = this->z * coord.z;
-        return ans;
-    }
-    V3 operator/(V3 coord) {
-        V3 ans;
-        ans.x = this->x / coord.x;
-        ans.y = this->y / coord.y;
-        ans.z = this->z / coord.z;
-        return ans;
-    }
-    V3 operator*(float c) {
-        V3 ans;
-        ans.x = this->x * c;
-        ans.y = this->y * c;
-        ans.z = this->z * c;
-        return ans;
-    }
-    V3 operator/(float c) {
-        V3 ans;
-        ans.x = this->x / c;
-        ans.y = this->y / c;
-        ans.z = this->z / c;
-        return ans;
-    }
-};
-
-// used by both bezier curves and patches to grab xyz coords from user
-vector<V3> get_coords(const vector<float> &vertex) {
-    vector<V3> coords;
-    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
-        V3 coord;
-        coord.x = vertex[i + data_m_attr.geometry];
-        coord.y = vertex[i + data_m_attr.geometry + 1];
-        coord.z = vertex[i + data_m_attr.geometry + 2];
-        coords.push_back(coord);
-    }
-    return coords;
-}
-
-// used by both bezier curves and patches to grab colors from the user for each
-// point
-vector<V3> get_colors(const vector<float> &vertex) {
-    vector<V3> colors;
-    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
-        V3 color;
-        color.x = vertex[i + data_m_attr.color];
-        color.y = vertex[i + data_m_attr.color + 1];
-        color.z = vertex[i + data_m_attr.color + 2];
-        colors.push_back(color);
-    }
-    return colors;
-}
+// using std::cout;
+// using std::endl;
 
 // recursive n_choose_k
 float n_choose_k(int n, int k) {
@@ -102,8 +18,8 @@ float bernstein(int n, int k, float t) {
 
 // bernstein calculation of bezuer curve for a given t
 // uses all control points
-V3 eval_bezier_curve(vector<V3> &coords, float t) {
-    V3 ans;
+VN eval_bezier_curve(vector<VN> &coords, float t) {
+    VN ans;
     int n = coords.size() - 1;
     for (int k = 0; k <= n; ++k) {
         ans = ans + (coords[k] * bernstein(n, k, t));
@@ -113,8 +29,8 @@ V3 eval_bezier_curve(vector<V3> &coords, float t) {
 
 // bernstein calculation of bezier patch for particular u and v
 // uses all control points
-V3 eval_bezier_patch(vector<vector<V3>> &coords, float u, float v) {
-    V3 ans;
+VN eval_bezier_patch(vector<vector<VN>> &coords, float u, float v) {
+    VN ans;
     int m = coords.size() - 1;
     int n = coords[0].size() - 1;
 
@@ -194,6 +110,89 @@ V3 cross_product(V3 a, V3 b) {
 
 V3 normalize(V3 v) { return v / -std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
+// used by both bezier curves and patches to grab xyz coords from user
+vector<VN> get_points(const vector<float> &vertex) {
+    if (data_m_attr.geom_flag) {
+        render_m_attr.add_geometry();
+    }
+    if (data_m_attr.color_flag) {
+        render_m_attr.add_color();
+    }
+    if (data_m_attr.texture_flag) {
+        render_m_attr.add_texture();
+    }
+    if (data_m_attr.weight_flag) {
+        render_m_attr.add_weight();
+    }
+    if (data_m_attr.opacity_flag) {
+        render_m_attr.add_opacity();
+    }
+    vector<VN> points;
+    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
+        VN point;
+        if (data_m_attr.geom_flag) {
+            point.attrs.push_back(vertex[i + data_m_attr.geometry]);
+            point.attrs.push_back(vertex[i + data_m_attr.geometry + 1]);
+            point.attrs.push_back(vertex[i + data_m_attr.geometry + 2]);
+        }
+        if (data_m_attr.color_flag) {
+            point.attrs.push_back(vertex[i + data_m_attr.color]);
+            point.attrs.push_back(vertex[i + data_m_attr.color + 1]);
+            point.attrs.push_back(vertex[i + data_m_attr.color + 2]);
+        }
+        if (data_m_attr.texture_flag) {
+            point.attrs.push_back(vertex[i + data_m_attr.texture]);
+            point.attrs.push_back(vertex[i + data_m_attr.texture + 1]);
+        }
+        if (data_m_attr.weight_flag) {
+            point.attrs.push_back(vertex[i + data_m_attr.weight]);
+        }
+        if (data_m_attr.opacity_flag) {
+            point.attrs.push_back(vertex[i + data_m_attr.opacity]);
+        }
+
+        points.push_back(point);
+    }
+    return points;
+}
+
+attr_point create_attr(VN point) {
+    attr_point a;
+    a.coord[0] = point.attrs[0];
+    a.coord[1] = point.attrs[1];
+    a.coord[2] = point.attrs[2];
+    a.coord[3] = 1.0;
+    a.coord[4] = 1.0;
+
+    int i = -1;
+    if (render_m_attr.geom_flag) {
+        a.coord[render_m_attr.geometry] = point.attrs[++i];
+        a.coord[render_m_attr.geometry + 1] = point.attrs[++i];
+        a.coord[render_m_attr.geometry + 2] = point.attrs[++i];
+    }
+
+    if (render_m_attr.color_flag) {
+        a.coord[render_m_attr.color] = point.attrs[++i];
+        a.coord[render_m_attr.color + 1] = point.attrs[++i];
+        a.coord[render_m_attr.color + 2] = point.attrs[++i];
+    }
+
+    if (render_m_attr.texture_flag) {
+        a.coord[render_m_attr.texture] = point.attrs[++i];
+        a.coord[render_m_attr.texture + 1] = point.attrs[++i];
+    }
+
+    if (render_m_attr.weight_flag) {
+        a.coord[render_m_attr.weight] = point.attrs[++i];
+    }
+
+    if (render_m_attr.opacity_flag) {
+        a.coord[render_m_attr.opacity] = point.attrs[++i];
+    }
+
+    return a;
+}
+
 // given any number of normal vectors returns the average of them all
 V3 avg_normal_vectors(vector<V3> &norms) {
     V3 avg;
@@ -213,60 +212,24 @@ int render_bezier_curve(const string &vertex_type, int degree,
     err = render_m_attr.set_render_indices(vertex_type);
     if (err) return err;
 
-    if (!data_m_attr.geom_flag) {
+    vector<VN> points = get_points(vertex);
+    if (points.size() == 0) {
         return 1;
-    }
-
-    vector<V3> coords = get_coords(vertex);
-    if (coords.size() == 0) {
-        return 1;
-    }
-
-    vector<V3> colors = get_colors(vertex);
-    if (render_m_attr.color_flag) {
-        render_m_attr.add_color();
     }
 
     render_m_attr.add_shading_offset();
 
-    float t = 0;  // t = 0 is coords[0] and t = 1 is coords[coords.size() - 1]
-    float interval_size = 1.0 / (n_divisions + 1);
-    vector<V3> new_coords;
-    vector<V3> new_colors;
+    vector<VN> bezier_points;
     for (int i = 0; i < n_divisions + 1; ++i) {
-        new_coords.push_back(eval_bezier_curve(coords, t));
-        new_colors.push_back(eval_bezier_curve(colors, t));
-        t += interval_size;
+        float t = i / (float)n_divisions;
+        bezier_points.push_back(eval_bezier_curve(points, t));
     }
 
-    attr_point start;
-    start.coord[0] = new_coords[0].x;
-    start.coord[1] = new_coords[0].y;
-    start.coord[2] = new_coords[0].z;
-    start.coord[3] = 1.0;
-    start.coord[4] = 1.0;
-
-    if (render_m_attr.color_flag) {
-        start.coord[render_m_attr.color] = new_colors[0].x;
-        start.coord[render_m_attr.color + 1] = new_colors[0].y;
-        start.coord[render_m_attr.color + 2] = new_colors[0].z;
-    }
+    attr_point start = create_attr(bezier_points[0]);
     line_pipeline(start, MOVE);
 
-    for (int i = 1; i < (int)new_coords.size(); ++i) {
-        attr_point s;
-        s.coord[0] = new_coords[i].x;
-        s.coord[1] = new_coords[i].y;
-        s.coord[2] = new_coords[i].z;
-        s.coord[3] = 1.0;
-        s.coord[4] = 1.0;
-
-        if (render_m_attr.color_flag) {
-            s.coord[render_m_attr.color] = new_colors[i].x;
-            s.coord[render_m_attr.color + 1] = new_colors[i].y;
-            s.coord[render_m_attr.color + 2] = new_colors[i].z;
-        }
-
+    for (int i = 1; i < (int)bezier_points.size(); ++i) {
+        attr_point s = create_attr(bezier_points[i]);
         line_pipeline(s, DRAW);
     }
 
@@ -282,87 +245,67 @@ int render_bezier_patch(const string &vertex_type, int u_degree, int v_degree,
     err = render_m_attr.set_render_indices(vertex_type);
     if (err) return err;
 
-    vector<V3> pre_coords = get_coords(vertex);
-    if (pre_coords.size() == 0) {
+    vector<VN> pre_points = get_points(vertex);
+    if (pre_points.size() == 0) {
         return 0;
     }
 
-    vector<V3> pre_colors = get_colors(vertex);
-    if (render_m_attr.color_flag) {
-        render_m_attr.add_color();
-    }
-
     render_m_attr.add_normal();
-
     render_m_attr.add_shading_offset();
 
+    vector<vector<VN>> points;
     vector<vector<V3>> coords;
-    vector<vector<V3>> colors;
     // put the coords into v_degree + 1 by u_degree + 1 vector for calculating
     for (int i = 0; i < v_degree + 1; ++i) {
-        vector<V3> c;
-        vector<V3> c2;
+        vector<VN> pr;
+        vector<V3> coord;
         for (int j = 0; j < u_degree + 1; ++j) {
-            c.push_back(pre_coords[i * (u_degree + 1) + j]);
-            if (render_m_attr.color_flag) {
-                c2.push_back(pre_colors[i * (u_degree + 1) + j]);
-            }
+            pr.push_back(pre_points[i * (u_degree + 1) + j]);
+            coord.push_back(pre_points[i * (u_degree + 1) + j].get_coord());
         }
-        coords.push_back(c);
-        colors.push_back(c2);
+        points.push_back(pr);
+        coords.push_back(coord);
     }
 
-    vector<vector<V3>> new_coords;
-    vector<vector<V3>> new_coords_normals;
-    vector<vector<V3>> new_coords_colors;
-    float interval_size = 1.0 / n_divisions;
-    float u = 0;
+    vector<vector<VN>> patch_coords;
+    vector<vector<V3>> patch_normals;
+
     for (int i = 0; i < n_divisions + 1; ++i) {
-        vector<V3> new_coords_rows;
-        vector<V3> new_coords_rows_normals;
-        vector<V3> new_coords_rows_colors;
-        float v = 0;
+        float u = i / (float)n_divisions;
+        vector<VN> ncr;
+        vector<V3> ncr_normals;
         for (int j = 0; j < n_divisions + 1; ++j) {
-            new_coords_rows.push_back(eval_bezier_patch(coords, u, v));
+            float v = j / (float)n_divisions;
+            ncr.push_back(eval_bezier_patch(points, u, v));
             // calculate the normal at same point
             // normalize(cross_product(partialdu, partialdv))
             if (render_m_attr.normal_flag) {
-                new_coords_rows_normals.push_back(
+                ncr_normals.push_back(
                     normalize(cross_product(du_bezier_patch(coords, u, v),
                                             dv_bezier_patch(coords, u, v))));
             }
-
-            // calculated the same way as geometric coords
-            if (render_m_attr.color_flag) {
-                new_coords_rows_colors.push_back(
-                    eval_bezier_patch(colors, u, v));
-            }
-
-            v += interval_size;
         }
 
-        new_coords.push_back(new_coords_rows);
-        new_coords_normals.push_back(new_coords_rows_normals);
-        new_coords_colors.push_back(new_coords_rows_colors);
-
-        u += interval_size;
+        patch_coords.push_back(ncr);
+        patch_normals.push_back(ncr_normals);
     }
 
     // draw the bezier patch
-    for (int i = 0; i < (int)new_coords.size(); ++i) {
-        for (int j = 0; j < (int)new_coords[i].size(); ++j) {
+    for (int i = 0; i < (int)patch_coords.size(); ++i) {
+        for (int j = 0; j < (int)patch_coords[i].size(); ++j) {
             // a new way to handle more flags
             vector<int> di = {0};
             vector<int> dj = {0};
-            if (j != new_coords[i].size() - 1) {
+            if (j != patch_coords[i].size() - 1) {
                 di.push_back(0);
                 dj.push_back(1);
             }
-            if (i != new_coords.size() - 1 && j != new_coords[i].size() - 1) {
+            if (i != patch_coords.size() - 1 &&
+                j != patch_coords[i].size() - 1) {
                 di.push_back(1);
                 dj.push_back(1);
             }
-            if (i != new_coords.size() - 1) {
+            if (i != patch_coords.size() - 1) {
                 di.push_back(1);
                 dj.push_back(0);
             }
@@ -371,26 +314,14 @@ int render_bezier_patch(const string &vertex_type, int u_degree, int v_degree,
             vector<attr_point> attrs;
 
             for (int k = 0; k < (int)di.size(); ++k) {
-                attr_point a;
-                V3 p = new_coords[i + di[k]][j + dj[k]];
-                a.coord[0] = p.x;
-                a.coord[1] = p.y;
-                a.coord[2] = p.z;
-                a.coord[3] = 1.0;
-                a.coord[4] = 1.0;
+                attr_point a = create_attr(patch_coords[i + di[k]][j + dj[k]]);
 
                 if (render_m_attr.normal_flag) {
-                    V3 norm = new_coords_normals[i + di[k]][j + dj[k]];
+                    V3 norm = patch_normals[i + di[k]][j + dj[k]];
                     norms.push_back(norm);
                     a.coord[render_m_attr.normal] = norm.x;
                     a.coord[render_m_attr.normal + 1] = norm.y;
                     a.coord[render_m_attr.normal + 2] = norm.z;
-                }
-                if (render_m_attr.color_flag) {
-                    V3 col = new_coords_colors[i + di[k]][j + dj[k]];
-                    a.coord[render_m_attr.color] = col.x;
-                    a.coord[render_m_attr.color + 1] = col.y;
-                    a.coord[render_m_attr.color + 2] = col.z;
                 }
                 attrs.push_back(a);
             }
@@ -423,22 +354,4 @@ int REDirect::rd_sqsphere(float radius, float north, float east, float zmin,
 int REDirect::rd_sqtorus(float radius1, float radius2, float north, float east,
                          float phimin, float phimax, float thetamax) {
     return 0;
-}
-
-// used by both bezier curves and patches for weighted values
-vector<float> get_weight(const vector<float> &vertex) {
-    vector<float> weights;
-    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
-        weights.push_back(vertex[i + data_m_attr.weight]);
-    }
-    return weights;
-}
-
-// used by both bezier curves and patches for weighted values
-vector<float> get_opacity(const vector<float> &vertex) {
-    vector<float> opacity;
-    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
-        opacity.push_back(vertex[i + data_m_attr.opacity]);
-    }
-    return opacity;
 }
