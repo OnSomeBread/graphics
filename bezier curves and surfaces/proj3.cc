@@ -128,7 +128,7 @@ vector<VN> get_points(const vector<float> &vertex) {
         render_m_attr.add_opacity();
     }
     vector<VN> points;
-    for (int i = 0; i < (int)vertex.size(); i += data_m_attr.size) {
+    for (int i = 0; i < vertex.size(); i += data_m_attr.size) {
         VN point;
         if (data_m_attr.geom_flag) {
             point.attrs.push_back(vertex[i + data_m_attr.geometry]);
@@ -196,10 +196,10 @@ attr_point create_attr(VN point) {
 // given any number of normal vectors returns the average of them all
 V3 avg_normal_vectors(vector<V3> &norms) {
     V3 avg;
-    for (int i = 0; i < (int)norms.size(); ++i) {
+    for (int i = 0; i < norms.size(); ++i) {
         avg = avg + norms[i];
     }
-    return normalize(avg / -(int)norms.size());
+    return normalize(avg / -norms.size());
 }
 
 namespace render_direct {
@@ -228,7 +228,7 @@ int render_bezier_curve(const string &vertex_type, int degree,
     attr_point start = create_attr(bezier_points[0]);
     line_pipeline(start, MOVE);
 
-    for (int i = 1; i < (int)bezier_points.size(); ++i) {
+    for (int i = 1; i < bezier_points.size(); ++i) {
         attr_point s = create_attr(bezier_points[i]);
         line_pipeline(s, DRAW);
     }
@@ -291,8 +291,8 @@ int render_bezier_patch(const string &vertex_type, int u_degree, int v_degree,
     }
 
     // draw the bezier patch
-    for (int i = 0; i < (int)patch_coords.size(); ++i) {
-        for (int j = 0; j < (int)patch_coords[i].size(); ++j) {
+    for (int i = 0; i < patch_coords.size(); ++i) {
+        for (int j = 0; j < patch_coords[i].size(); ++j) {
             // a new way to handle more flags
             vector<int> di = {0};
             vector<int> dj = {0};
@@ -313,7 +313,7 @@ int render_bezier_patch(const string &vertex_type, int u_degree, int v_degree,
             vector<V3> norms;
             vector<attr_point> attrs;
 
-            for (int k = 0; k < (int)di.size(); ++k) {
+            for (int k = 0; k < di.size(); ++k) {
                 attr_point a = create_attr(patch_coords[i + di[k]][j + dj[k]]);
 
                 if (render_m_attr.normal_flag) {

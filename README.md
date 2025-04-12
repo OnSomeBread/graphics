@@ -1,10 +1,10 @@
-assign 3 - Bezier curves and surfaces<br>
+Bezier curves and surfaces<br>
 usage ./rdv rdfile<br>
 calculated with real surface normals at each point with ∂/∂u(bernstein polynomials) X ∂/∂v(bernstein polynomials)<br>
 the teapot below is only with 10 subdivisions but calculated surface normals fake the smoothness much better than appoximation (assign 2 shows off appoximated normals)<br>
 <img src="visualizations/teapot.png" width="500" /><br><br>
 
-assign 2 - Marching Cubes Algorithm<br>
+Marching Cubes Algorithm<br>
 usage ./proj2 input_file output_file surfacelvl<br>
 
 to make rd_file all of the .dat files have rows, cols, planes = 20, 20, 20<br>
@@ -17,7 +17,7 @@ Linear Interpolation and no Normals<br>
 Linear Interpolation and appoximated Normals (gif compression makes it appear less smooth)<br>
 <img src="visualizations/smooth_sphere.gif" width="400" /><br><br>
 
-assign 1 - skew, twist, extrude, and sweeps on a polyset<br>
+Affine Transformations - skew, twist, extrude, and sweeps on a polyset<br>
 usage ./proj1 inputFileName outputFileName technique techniqueArgs<br>
 possible techniques and args are<br>
 skew skewX skewY<br>
