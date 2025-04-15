@@ -4,7 +4,6 @@
 using std::cout;
 using std::endl;
 
-#include "cs630.h"
 struct V3 {
     float x = 0;
     float y = 0;
