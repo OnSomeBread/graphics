@@ -55,17 +55,19 @@ int main() {
         for (int j = 0; j < sizey; ++j) {
             pos.x = j * spacing + spacing_diff * gaussian(-3, 3);
 
-            cout << "Curve \"Bezier\" \"P\" 3" << endl;
-            cout << pos.x << " " << pos.y << " " << pos.z << endl;
-            cout << pos.x << " " << pos.y << " " << pos.z + 2 << endl;
-            cout << pos.x << " " << pos.y << " " << pos.z + 4 << endl;
+            cout << "Curve \"Bezier\" \"PC\" 3" << endl;
+            cout << pos.x << " " << pos.y << " " << pos.z << " 0 .4 0" << endl;
+            cout << pos.x << " " << pos.y << " " << pos.z + 2 << " 0 .6 0"
+                 << endl;
+            cout << pos.x << " " << pos.y << " " << pos.z + 4 << " 0 .7 0"
+                 << endl;
 
             float cx = 4 * gaussian(-3, 3);
             float cy = 4 * gaussian(-3, 3);
             float cz = 4 * gaussian(-3, 3) + 5;
 
             cout << pos.x + cx << " " << pos.y + cy << " " << pos.z + cz
-                 << endl;
+                 << " .65 .95 .05" << endl;
 
             // cout << "Patch \"Bezier\" \"P\" 2 2" << endl;
             // cout << pos.x - .1 << " " << pos.y + .5 << " " << pos.z << endl;

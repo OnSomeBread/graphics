@@ -16,6 +16,19 @@ struct V3 {
         ans.z = this->z + coord.z;
         return ans;
     }
+
+    void operator+=(V3 coord) {
+        this->x += coord.x;
+        this->y += coord.y;
+        this->z += coord.z;
+    }
+
+    void operator*=(V3 coord) {
+        this->x *= coord.x;
+        this->y *= coord.y;
+        this->z *= coord.z;
+    }
+
     V3 operator+(float c) {
         V3 ans;
         ans.x = this->x + c;

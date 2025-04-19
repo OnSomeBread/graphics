@@ -2,14 +2,19 @@
 # g++ -o rd_view libcs630.a proj3.o -lX11 -lm 
 # -Werror -Wextra -Wall -pedantic 
 CXXFLAGS= -std=c++14 
-all: rdv smoke grass
+all: rdv rdvb water
 
 rdv: libcs630.a proj4.o
 	g++ -o rdv libcs630.a proj4.o -I /opt/X11/include -L /opt/X11/lib -lX11 -lm 
 
+rdvb: libcs630.a proj3.o
+	g++ -o rdvb libcs630.a proj3.o -I /opt/X11/include -L /opt/X11/lib -lX11 -lm 
+
 proj4: proj4.o
 	g++ -c -I. proj4.cc
 
+proj3: proj4.o
+	g++ -c -I. proj3.cc
+
 clean:
-	rm -f *.o proj4 smoke grass
-	rm rdv
+	rm -f *.o proj4 smoke grass water rdv rdvb
