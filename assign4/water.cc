@@ -18,8 +18,9 @@ using std::vector;
 // STARTING POS IS AGGRESSIVE
 // EDGES HAVE GAPS
 // CLUMPS FORM
-
-// TO INTERACT WITH NEW OBJS ADD TO SPATIAL LOOK UP TABLE
+// IMPLEMENT MARCHING CUBES
+// FIX SPATIAL LOOK UP TABLE
+// ADD NEAR DENSITY AND NEAR PRESSURE FORCES
 
 float random_float(float low, float high) {
     return low + static_cast<float>(rand()) /
@@ -39,14 +40,15 @@ float magnitude(V3 v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
 // cubic smoothing function
 float smoothing(float radius, float diff) {
-    float volume = M_PI * pow(radius, 8) / 4;
+    float volume = (64 * M_PI * pow(radius, 9)) / 315;
     return pow(max(0.0f, radius * radius - diff * diff), 3) / volume;
 }
 
 // derivative of the smoothing function
 float dsmoothing(float radius, float diff) {
-    float volume = M_PI * pow(radius, 8) / -24;
-    return pow(max(0.0f, radius * radius - diff * diff), 2) * diff / volume;
+    float volume = (64 * M_PI * pow(radius, 9)) / 315;
+    return -6 * pow(max(0.0f, radius * radius - diff * diff), 2) * diff /
+           volume;
 }
 
 vector<V3> get_nearest_particles(unordered_map<int, vector<V3>>& grid, V3 p,
@@ -72,65 +74,6 @@ vector<V3> get_nearest_particles(unordered_map<int, vector<V3>>& grid, V3 p,
     return ans;
 }
 
-// calculates how aggressive the pressure force value should be in order to
-// reach target density
-float pressure_from_density(float density, float t_density, float p_mult) {
-    return (t_density - density) * p_mult;
-}
-
-// // add all of the values from the smoothing function in relation to all other
-// // particles including itself to prevent density = 0
-float calc_density(unordered_map<int, vector<V3>>& grid, vector<V3>& particles,
-                   int pointidx, float radius, float mass) {
-    float density = 0;
-
-    vector<V3> nearest =
-        get_nearest_particles(grid, particles[pointidx], radius);
-
-    for (int i = 0; i < nearest.size(); ++i) {
-        float d = magnitude(nearest[i] - particles[pointidx]);
-        density += mass * smoothing(radius, d);
-    }
-    return density;
-}
-
-// calculate the pressure force for the particle
-V3 pressure_force(unordered_map<int, vector<V3>>& grid, vector<V3>& particles,
-                  int pointidx, vector<float>& densities, float target_density,
-                  float pressure_mult, float radius, float mass) {
-    V3 pressure;
-
-    vector<V3> nearest =
-        get_nearest_particles(grid, particles[pointidx], radius);
-
-    for (int i = 0; i < nearest.size(); ++i) {
-        // cant use the current particle otherwise creates nans
-        if (i == pointidx) {
-            continue;
-        }
-
-        V3 particle_diff = nearest[i] - particles[pointidx];
-        float d = magnitude(particle_diff);
-        float ds = dsmoothing(radius, d);
-
-        // if moving in same direction pick a random one instead
-        V3 dir = d == 0 ? random_dir() : particle_diff / d;
-
-        // instead of just p0 use the average particle pressure between the
-        // current particle and this particle
-        float p0 =
-            pressure_from_density(densities[i], target_density, pressure_mult);
-
-        float p1 =
-            pressure_from_density(densities[i], target_density, pressure_mult);
-
-        float avgp = (p0 + p1) / 2.0;
-
-        pressure += dir * avgp * mass * ds / densities[i];
-    }
-    return pressure;
-}
-
 // add all of the values from the smoothing function in relation to all other
 // particles including itself to prevent density = 0
 double calc_density(vector<V3>& particles, int pointidx, float radius,
@@ -144,15 +87,13 @@ double calc_density(vector<V3>& particles, int pointidx, float radius,
 }
 
 // calculate the pressure force for the particle
-V3 pressure_force(vector<V3>& particles, int pointidx, vector<float>& densities,
-                  float target_density, float pressure_mult, float radius,
+V3 pressure_force(vector<V3>& particles, int pointidx,
+                  vector<double>& densities, float target_density, float radius,
                   float mass) {
     V3 pressure;
     for (int i = 0; i < particles.size(); ++i) {
         // cant use the current particle otherwise creates nans
-        if (i == pointidx) {
-            continue;
-        }
+        if (i == pointidx) continue;
 
         V3 particle_diff = particles[i] - particles[pointidx];
         float d = magnitude(particle_diff);
@@ -163,12 +104,8 @@ V3 pressure_force(vector<V3>& particles, int pointidx, vector<float>& densities,
 
         // instead of just p0 use the average particle pressure between the
         // current particle and this particle
-        float p0 =
-            pressure_from_density(densities[i], target_density, pressure_mult);
-
-        float p1 =
-            pressure_from_density(densities[i], target_density, pressure_mult);
-
+        float p0 = (target_density - densities[i]);
+        float p1 = (target_density - densities[pointidx]);
         float avgp = (p0 + p1) / 2.0;
 
         pressure += dir * avgp * mass * ds / densities[i];
@@ -177,18 +114,16 @@ V3 pressure_force(vector<V3>& particles, int pointidx, vector<float>& densities,
 }
 
 V3 viscosity_force(vector<V3>& particles, int pointidx, vector<V3>& velocities,
-                   float radius, float viscosity_mult) {
+                   float radius) {
     V3 viscosity;
     for (int i = 0; i < particles.size(); ++i) {
-        if (i == pointidx) {
-            continue;
-        }
+        if (i == pointidx) continue;
         float d = magnitude(particles[pointidx] - particles[i]);
         viscosity +=
             (velocities[i] - velocities[pointidx]) * smoothing(radius, d);
     }
 
-    return viscosity * viscosity_mult;
+    return viscosity;
 }
 
 // changes particle pos and velocity if out of bounds
@@ -232,7 +167,7 @@ int main() {
     cout << "Display \"Objects\"  \"Screen\"  \"rgbdouble\"" << endl;
     cout << "Background 0.6 0.7 0.8" << endl;
     cout << "CameraUp 0 0 1" << endl;
-    cout << "CameraAt 6 0 4" << endl;
+    cout << "CameraAt 5 0 6" << endl;
     cout << "CameraEye -4 -15 16" << endl;
     cout << "CameraFOV 50" << endl;
 
@@ -250,7 +185,7 @@ int main() {
     vector<V3> particles;
     vector<V3> velocities;
     vector<V3> predicted_particles;
-    vector<float> densities;
+    vector<double> densities;
 
     int rows = 6;
     int cols = 6;
@@ -258,7 +193,7 @@ int main() {
 
     // min and max of the boundary box that the particles should be contained in
     V3 min_bound = {0, 0, 0};
-    V3 max_bound = {18, 18, 18};
+    V3 max_bound = {15, 15, 15};
     V3 bound_size = {max_bound.x - min_bound.x, max_bound.y - min_bound.y,
                      max_bound.z - min_bound.z};
 
@@ -286,21 +221,21 @@ int main() {
         }
     }
 
-    float sphere_size = .75;
+    float sphere_size = .6;
     V3 slow_particle_color = {.25, .8, .8};
     V3 fast_particle_color = {.8, .25, .25};
     float fast_v = 10;  // highest value for color
 
-    float g = 1;
+    float g = .8;
     float particle_mass = 1;
 
-    float particle_damping = .5;
-    float density_radius = 2;
-    float target_density = 1.5;
+    float particle_damping = .9;
+    float density_radius = 1.75;
+    float target_density = 2;
 
     // how fast do we want particles to be target_density
-    float pressure_multiplier = 100;
-    float viscosity_multiplier = .8;
+    float pressure_multiplier = 30;
+    float viscosity_multiplier = .3;
 
     auto last_frame_time = std::chrono::high_resolution_clock::now();
 
@@ -318,7 +253,7 @@ int main() {
         cout << "FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0\n";
         cout << "PointLight -5 -5 -5 1 1 0 1\n";
         // cout << "ObjectInstance \"Axis\"\n";
-        //    cout << "Surface \"matte\"\n";
+        // cout << "Surface \"plastic\"\n";
 
         // auto start = std::chrono::high_resolution_clock::now();
         // add gravitational forces to particles
@@ -374,9 +309,8 @@ int main() {
         for (int i = 0; i < particles.size(); ++i) {
             V3 pressure_accel =
                 pressure_force(predicted_particles, i, densities,
-                               target_density, pressure_multiplier,
-                               density_radius, particle_mass) /
-                densities[i];
+                               target_density, density_radius, particle_mass) *
+                pressure_multiplier / densities[i];
 
             velocities[i] += pressure_accel * dt;
         }
@@ -385,8 +319,9 @@ int main() {
         // creates friction between nearby particles so that particles within
         // the radius have similar velocities
         for (int i = 0; i < particles.size(); ++i) {
-            velocities[i] += viscosity_force(
-                particles, i, velocities, density_radius, viscosity_multiplier);
+            velocities[i] +=
+                viscosity_force(particles, i, velocities, density_radius) *
+                viscosity_multiplier;
 
             // fast_v = max(fast_v, magnitude(velocities[i]));
         }
@@ -399,12 +334,16 @@ int main() {
                          min_bound, max_bound);
 
             cout << "XformPush\n";
-            V3 particle_color =
-                interpolate(slow_particle_color, fast_particle_color,
-                            scale_t_val(magnitude(velocities[i]), 0, fast_v));
+            // V3 particle_color =
+            //     interpolate(slow_particle_color, fast_particle_color,
+            //                 scale_t_val(magnitude(velocities[i]), 0,
+            //                 fast_v));
 
-            cout << "Color " << particle_color.x << " " << particle_color.y
-                 << " " << particle_color.z << " \n";
+            // cout << "Color " << particle_color.x << " " << particle_color.y
+            //      << " " << particle_color.z << " \n";
+            cout << "Color " << slow_particle_color.x << " "
+                 << slow_particle_color.y << " " << slow_particle_color.z
+                 << " \n";
             cout << "Translate " << particles[i].x << " " << particles[i].y
                  << " " << particles[i].z << "\n";
             cout << "Sphere " << sphere_size << " " << -sphere_size << " "
