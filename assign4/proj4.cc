@@ -80,15 +80,15 @@ void draw_polygons(vector<vector<V3>> &coords, vector<vector<V3>> &normals) {
                     a.coord[render_m_attr.geometry + 1] = p.y;
                     a.coord[render_m_attr.geometry + 2] = p.z;
                 }
-                // if (render_m_attr.normal_flag) {
-                //     V3 norm = normals[i + di[k]][j + dj[k]];
-                //     a.coord[render_m_attr.normal] = norm.x;
-                //     a.coord[render_m_attr.normal + 1] = norm.y;
-                //     a.coord[render_m_attr.normal + 2] = norm.z;
-                //     norms.push_back(norm);
-                // }
+                if (render_m_attr.normal_flag) {
+                    V3 norm = normals[i + di[k]][j + dj[k]];
+                    a.coord[render_m_attr.normal] = norm.x;
+                    a.coord[render_m_attr.normal + 1] = norm.y;
+                    a.coord[render_m_attr.normal + 2] = norm.z;
+                    norms.push_back(norm);
+                }
 
-                norms.push_back(normals[i + di[k]][j + dj[k]]);
+                // norms.push_back(normals[i + di[k]][j + dj[k]]);
                 attrs.push_back(a);
             }
 
@@ -150,56 +150,48 @@ int REDirect::rd_sqsphere(float radius, float north, float east, float zmin,
             // haha normal time
             // calculate the gradient for sqsphere
             // partial derivative with respect to u
-            // V3 du_normal;
+            V3 du_normal;
 
-            // float dxright =
-            //     east * pow(abs(cos(u)), east - 1) * sc(cos(u)) * -sin(u);
-            // dxright = isnan(dxright) || isinf(dxright) ? -sin(u) : dxright;
+            float dxright =
+                -east * sin(u) * pow(abs(cos(u)), east) / cos(u) * sc(cos(u));
+            dxright = isnan(dxright) || isinf(dxright) ? -sin(u) : dxright;
 
-            // float dyright =
-            //     east * pow(abs(sin(u)), east - 1) * sc(sin(u)) * cos(u);
-            // dyright = isnan(dyright) || isinf(dyright) ? cos(u) : dyright;
+            float dyright =
+                east * cos(u) * pow(abs(sin(u)), east) / sin(u) * sc(sin(u));
+            dyright = isnan(dyright) || isinf(dyright) ? cos(u) : dyright;
+            if (east == 0) {
+                dxright = 1;
+                dyright = 1;
+            }
 
-            // if (east == 0) {
-            //     dxright = 1;
-            //     dyright = 1;
-            // }
+            du_normal.x = xleft * dxright;
+            du_normal.y = yleft * dyright;
+            du_normal.z = 0;
 
-            // // x = cos^n(v)ecos^(e-1)(u)(-sin(u))
-            // du_normal.x = xleft * dxright;
-            // // y = cos^n(v)esin^(e-1)(u)cos(u)
-            // du_normal.y = yleft * dyright;
-            // // z = 0
-            // du_normal.z = 0;
+            // partial derivative with respect to v
+            V3 dv_normal;
 
-            // // partial derivative with respect to v
-            // V3 dv_normal;
+            float dxleft =
+                -north * sin(v) * pow(abs(cos(v)), north) / cos(v) * sc(cos(v));
+            dxleft = isnan(dxleft) || isinf(dxleft) ? -sin(v) : dxleft;
+            if (north == 0) {
+                dxleft = -1;
+            }
 
-            // float dxleft =
-            //     north * pow(abs(cos(v)), north - 1) * sc(cos(v)) * -sin(v);
-            // dxleft = isnan(dxleft) || isinf(dxleft) ? -sin(v) : dxleft;
-            // if (north == 0) {
-            //     dxleft = 1;
-            // }
+            float dyleft = dxleft;
 
-            // float dyleft = dxleft;
+            dv_normal.x = dxleft * xright;
+            dv_normal.y = dyleft * yright;
+            dv_normal.z =
+                north * cos(v) * pow(abs(sin(v)), north) / sin(v) * sc(sin(v));
+            dv_normal.z =
+                isnan(dv_normal.z) || isinf(dv_normal.z) ? cos(v) : dv_normal.z;
 
-            // // x = ncos^(n-1)(v)(-sin(v))cos^e(u)
-            // dv_normal.x = dxleft * xright;
-            // // y = ncos^(n-1)(v)(-sin(v))cos^e(u)
-            // dv_normal.y = dyleft * yright;
-            // // z = nsin^(n-1)(v)cos(v)
-            // dv_normal.z =
-            //     north * pow(abs(sin(v)), north - 1) * sc(sin(v)) * cos(v);
-            // dv_normal.z =
-            //     isnan(dv_normal.z) || isinf(dv_normal.z) ? cos(v) :
-            //     dv_normal.z;
+            if (north == 0) {
+                dv_normal.z = -1;
+            }
 
-            // if (north == 0) {
-            //     dv_normal.z = 1;
-            // }
-
-            // V3 normal = normalize(cross_product(dv_normal, du_normal));
+            V3 normal = normalize(cross_product(dv_normal, du_normal));
 
             // if (magnitude(normal) == 0) {
             //     cout << "u:" << u << " v:" << v << endl;
@@ -210,24 +202,28 @@ int REDirect::rd_sqsphere(float radius, float north, float east, float zmin,
 
             // different approach
             // f(x, y, z) = ( |x|^(2/e) + |y|^(2/e) )^(e/n) + |z|^(2/n) - 1
-            V3 norm;
-            norm.x = east / north *
-                     pow(pow(abs(p.x), 2.0 / east) + pow(abs(p.y), 2.0 / east),
-                         east / north - 1) *
-                     2.0 / east * sc(p.x) * pow(abs(p.x), 2.0 / east - 1);
+            // V3 norm;
+            // norm.x = east / north *
+            //          pow(pow(abs(p.x), 2.0 / east) + pow(abs(p.y), 2.0 /
+            //          east),
+            //              east / north - 1) *
+            //          2.0 / east * sc(p.x) * pow(abs(p.x), 2.0 / east - 1);
 
-            norm.y = east / north *
-                     pow(pow(abs(p.x), 2.0 / east) + pow(abs(p.y), 2.0 / east),
-                         east / north - 1) *
-                     2.0 / east * sc(p.y) * pow(abs(p.y), 2.0 / east - 1);
+            // norm.y = east / north *
+            //          pow(pow(abs(p.x), 2.0 / east) + pow(abs(p.y), 2.0 /
+            //          east),
+            //              east / north - 1) *
+            //          2.0 / east * sc(p.y) * pow(abs(p.y), 2.0 / east - 1);
 
-            norm.z = (2.0 / north) * pow(abs(p.z), 2.0 / north - 1) * sc(p.z);
+            // norm.z = (2.0 / north) * pow(abs(p.z), 2.0 / north - 1) *
+            // sc(p.z);
 
-            norm.x = isnan(norm.x) || isinf(norm.x) ? sc(p.x) : norm.x;
-            norm.y = isnan(norm.y) || isinf(norm.y) ? sc(p.y) : norm.y;
-            norm.z = isnan(norm.z) || isinf(norm.z) ? sc(p.z) : norm.z;
+            // norm.x = isnan(norm.x) || isinf(norm.x) ? sc(p.x) : norm.x;
+            // norm.y = isnan(norm.y) || isinf(norm.y) ? sc(p.y) : norm.y;
+            // norm.z = isnan(norm.z) || isinf(norm.z) ? sc(p.z) : norm.z;
 
-            rows_normals.push_back(normalize(norm));
+            normal = normal * -1;
+            rows_normals.push_back(normal);
         }
         coords.push_back(rows);
         normals.push_back(rows_normals);
@@ -279,12 +275,12 @@ int REDirect::rd_sqtorus(float radius1, float radius2, float north, float east,
             // sqtorus normals
             V3 du_normal;
             float dxleft =
-                east * pow(abs(cos(u)), east - 1) * sc(cos(u)) * (-sin(u));
-            // dxleft = isnan(dxleft) || isinf(dxleft) ? -sin(u) : dxleft;
+                -east * sin(u) * pow(abs(cos(u)), east) / cos(u) * sc(cos(u));
+            dxleft = isnan(dxleft) || isinf(dxleft) ? -sin(u) : dxleft;
 
             float dyleft =
-                east * pow(abs(sin(u)), east - 1) * sc(sin(u)) * cos(u);
-            // dyleft = isnan(dyleft) || isinf(dyleft) ? cos(u) : dyleft;
+                east * cos(u) * pow(abs(sin(u)), east) / sin(u) * sc(sin(u));
+            dyleft = isnan(dyleft) || isinf(dyleft) ? cos(u) : dyleft;
 
             if (east == 0) {
                 dxleft = 1;
@@ -296,52 +292,30 @@ int REDirect::rd_sqtorus(float radius1, float radius2, float north, float east,
 
             V3 dv_normal;
 
-            float dxright = radius2 * north * pow(abs(cos(v)), north - 1) *
-                            sc(cos(v)) * (-sin(v));
-            // dxright =
-            //     isnan(dxright) || isinf(dxright) ? -sin(v) * radius2 :
-            //     dxright;
+            float dxright = radius2 * north * -sin(v) *
+                            pow(abs(cos(v)), north) / cos(v) * sc(cos(v));
+            dxright =
+                isnan(dxright) || isinf(dxright) ? -sin(v) * radius2 : dxright;
 
             if (north == 0) {
-                dxright = 1;
+                dxright = -1;
             }
             float dyright = dxright;
 
             dv_normal.x = xleft * dxright;
             dv_normal.y = yleft * dyright;
 
-            dv_normal.z = radius2 * north * pow(abs(sin(v)), north - 1) *
-                          sc(sin(v)) * cos(v);
-            // dv_normal.z = isnan(dv_normal.z) || isinf(dv_normal.z)
-            //                   ? cos(v) * radius2
-            //                   : dv_normal.z;
+            dv_normal.z = radius2 * north * cos(v) * pow(abs(sin(v)), north) /
+                          sin(v) * sc(sin(v));
+            dv_normal.z = isnan(dv_normal.z) || isinf(dv_normal.z)
+                              ? cos(v) * radius2
+                              : dv_normal.z;
             if (north == 0) {
-                dv_normal.z = 1;
+                dv_normal.z = -1;
             }
 
             V3 normal = normalize(cross_product(du_normal, dv_normal));
-
-            // just a copy of sqsphere
-            // f(x, y, z) = (|sqrt(x*x + y*y)-R|^(2/e) + |z|^(2/n))^(e*n/2) - r
-            V3 norm;
-            norm.x = east / north *
-                     pow(pow(abs(p.x), 2.0 / east) + pow(abs(p.y), 2.0 / east),
-                         east / north - 1) *
-                     2.0 / east * sc(p.x) * pow(abs(p.x), 2.0 / east - 1);
-
-            norm.y = east / north *
-                     pow(pow(abs(p.x), 2.0 / east) + pow(abs(p.y), 2.0 / east),
-                         east / north - 1) *
-                     2.0 / east * sc(p.y) * pow(abs(p.y), 2.0 / east - 1);
-
-            norm.z = (2.0 / north) * pow(abs(p.z), 2.0 / north - 1) * sc(p.z);
-
-            norm.x = isnan(norm.x) || isinf(norm.x) ? sc(p.x) : norm.x;
-            norm.y = isnan(norm.y) || isinf(norm.y) ? sc(p.y) : norm.y;
-            norm.z = isnan(norm.z) || isinf(norm.z) ? sc(p.z) : norm.z;
-
-            // rows_normals.push_back(normalize(norm));
-            rows_normals.push_back(norm);
+            rows_normals.push_back(normal);
         }
         coords.push_back(rows);
         normals.push_back(rows_normals);

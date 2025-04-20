@@ -133,9 +133,9 @@ V3 pressure_force(unordered_map<int, vector<V3>>& grid, vector<V3>& particles,
 
 // add all of the values from the smoothing function in relation to all other
 // particles including itself to prevent density = 0
-float calc_density(vector<V3>& particles, int pointidx, float radius,
-                   float mass) {
-    float density = 0;
+double calc_density(vector<V3>& particles, int pointidx, float radius,
+                    float mass) {
+    double density = 0;
     for (int i = 0; i < particles.size(); ++i) {
         float d = magnitude(particles[i] - particles[pointidx]);
         density += mass * smoothing(radius, d);
@@ -176,33 +176,48 @@ V3 pressure_force(vector<V3>& particles, int pointidx, vector<float>& densities,
     return pressure;
 }
 
+V3 viscosity_force(vector<V3>& particles, int pointidx, vector<V3>& velocities,
+                   float radius, float viscosity_mult) {
+    V3 viscosity;
+    for (int i = 0; i < particles.size(); ++i) {
+        if (i == pointidx) {
+            continue;
+        }
+        float d = magnitude(particles[pointidx] - particles[i]);
+        viscosity +=
+            (velocities[i] - velocities[pointidx]) * smoothing(radius, d);
+    }
+
+    return viscosity * viscosity_mult;
+}
+
 // changes particle pos and velocity if out of bounds
 void bounds_check(V3& point, V3& v, float damping, V3 min_pos, V3 max_pos) {
     if (point.x < min_pos.x) {
         point.x = min_pos.x;
-        v = v * -damping;
+        v.x = v.x * -damping;
     }
     if (point.x > max_pos.x) {
         point.x = max_pos.x;
-        v = v * -damping;
+        v.x = v.x * -damping;
     }
 
     if (point.y < min_pos.y) {
         point.y = min_pos.y;
-        v = v * -damping;
+        v.y = v.y * -damping;
     }
     if (point.y > max_pos.y) {
         point.y = max_pos.y;
-        v = v * -damping;
+        v.y = v.y * -damping;
     }
 
     if (point.z < min_pos.z) {
         point.z = min_pos.z;
-        v = v * -damping;
+        v.z = v.z * -damping;
     }
     if (point.z > max_pos.z) {
         point.z = max_pos.z;
-        v = v * -damping;
+        v.z = v.z * -damping;
     }
 }
 
@@ -243,7 +258,7 @@ int main() {
 
     // min and max of the boundary box that the particles should be contained in
     V3 min_bound = {0, 0, 0};
-    V3 max_bound = {15, 15, 15};
+    V3 max_bound = {18, 18, 18};
     V3 bound_size = {max_bound.x - min_bound.x, max_bound.y - min_bound.y,
                      max_bound.z - min_bound.z};
 
@@ -259,10 +274,10 @@ int main() {
         for (int j = 0; j < cols; ++j) {
             pos.y = j * spacing.y;
             for (int k = 0; k < planes; ++k) {
-                pos.x += random_float(-spacing.x / 2.0, spacing.x / 2.0);
-                pos.y += random_float(-spacing.y / 2.0, spacing.y / 2.0);
+                pos.x += random_float(-spacing.x / 3.0, spacing.x / 3.0);
+                pos.y += random_float(-spacing.y / 3.0, spacing.y / 3.0);
                 pos.z = k * spacing.z +
-                        random_float(-spacing.z / 2.0, spacing.z / 2.0);
+                        random_float(-spacing.z / 3.0, spacing.z / 3.0);
                 particles.push_back(pos);
                 predicted_particles.push_back(pos);
                 velocities.push_back({0, 0, 0});
@@ -271,29 +286,33 @@ int main() {
         }
     }
 
-    float g = 1;
-    int target_fps = 60;
-    int frame_time = 1000 / target_fps;
-    float dt = 1 / (float)target_fps;
-
     float sphere_size = .75;
     V3 slow_particle_color = {.25, .8, .8};
     V3 fast_particle_color = {.8, .25, .25};
+    float fast_v = 10;  // highest value for color
 
-    float particle_damping = .5;
-
-    float density_radius = 1.5;
+    float g = 1;
     float particle_mass = 1;
 
-    float target_density = 1.75;
+    float particle_damping = .5;
+    float density_radius = 2;
+    float target_density = 1.5;
 
     // how fast do we want particles to be target_density
     float pressure_multiplier = 100;
+    float viscosity_multiplier = .8;
 
-    int frame_num = 0;
-    int total_frames = 1000;
+    auto last_frame_time = std::chrono::high_resolution_clock::now();
 
+    long unsigned frame_num = 0;
     while (1) {
+        auto curr = std::chrono::high_resolution_clock::now();
+        double dt = std::chrono::duration_cast<std::chrono::microseconds>(
+                        curr - last_frame_time)
+                        .count() /
+                    1000000.0f;
+        last_frame_time = curr;
+
         cout << "FrameBegin " << frame_num << "\nWorldBegin\n";
         cout << "AmbientLight 0.6 0.7 0.8 0.8\n";
         cout << "FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0\n";
@@ -302,18 +321,17 @@ int main() {
         //    cout << "Surface \"matte\"\n";
 
         // auto start = std::chrono::high_resolution_clock::now();
-        float fast_v = 0;
         // add gravitational forces to particles
         for (int i = 0; i < particles.size(); ++i) {
             velocities[i].z += -g * dt;
-            predicted_particles[i] = particles[i] + velocities[i] * (1 / 120.0);
+            predicted_particles[i] = particles[i] + velocities[i] * dt;
         }
 
         // massive optimization to allow for more particles
         // split the bounding box into grid squares of size density_radius
         // then when calculating densities or pressure forces only consider the
         // 3x3 grid of cells since the rest of the particles will add 0 anyway
-        // bits 0-7 rows, bits 7-15 cols, and bits 16-23 is planes
+        // bits 0-7 planes, bits 7-15 cols, and bits 16-23 is rows
         // unordered_map<int, vector<V3>> grid;
 
         // // populate the particle grid
@@ -345,12 +363,14 @@ int main() {
         //     }
         // }
 
+        // create densities table for it to be used in pressure forces
         for (int i = 0; i < particles.size(); ++i) {
             densities[i] = calc_density(predicted_particles, i, density_radius,
                                         particle_mass);
         }
 
         // add particle pressure forces
+        // tells the particle how fast it should conform to target density
         for (int i = 0; i < particles.size(); ++i) {
             V3 pressure_accel =
                 pressure_force(predicted_particles, i, densities,
@@ -359,8 +379,16 @@ int main() {
                 densities[i];
 
             velocities[i] += pressure_accel * dt;
+        }
 
-            fast_v = max(fast_v, magnitude(velocities[i]));
+        // add viscosity force
+        // creates friction between nearby particles so that particles within
+        // the radius have similar velocities
+        for (int i = 0; i < particles.size(); ++i) {
+            velocities[i] += viscosity_force(
+                particles, i, velocities, density_radius, viscosity_multiplier);
+
+            // fast_v = max(fast_v, magnitude(velocities[i]));
         }
 
         // auto end = std::chrono::high_resolution_clock::now();
@@ -396,6 +424,5 @@ int main() {
 
         cout << "WorldEnd\nFrameEnd\n";
         frame_num++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(frame_time));
     }
 }
