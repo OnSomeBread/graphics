@@ -128,8 +128,8 @@ int REDirect::rd_sqsphere(float radius, float north, float east, float zmin,
 
         vector<V3> rows;
         vector<V3> rows_normals;
-        for (int j = 0; j < n_divisions + 1; ++j) {
-            float v = (M_PI * j) / (float)n_divisions - (M_PI / 2.0);
+        for (int j = 0; j < n_divisions / 2 + 1; ++j) {
+            float v = (M_PI * j) / (n_divisions / 2.0) - (M_PI / 2.0);
             V3 p;
 
             // x = cos^n(v)cos^e(u)

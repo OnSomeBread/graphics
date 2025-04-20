@@ -27,6 +27,11 @@ float random_float(float low, float high) {
 }
 
 V3 random_dir() {
+    return {(float)(rand() % 3 - 1), (float)(rand() % 3 - 1),
+            (float)(rand() % 3 - 1)};
+}
+
+V3 random_dir_float() {
     return {random_float(-1, 1), random_float(-1, 1), random_float(-1, 1)};
 }
 
@@ -212,9 +217,9 @@ int main() {
     cout << "Display \"Objects\"  \"Screen\"  \"rgbdouble\"" << endl;
     cout << "Background 0.6 0.7 0.8" << endl;
     cout << "CameraUp 0 0 1" << endl;
-    cout << "CameraAt 12 0 8" << endl;
-    cout << "CameraEye -4 -20 16" << endl;
-    cout << "CameraFOV 65" << endl;
+    cout << "CameraAt 6 0 4" << endl;
+    cout << "CameraEye -4 -15 16" << endl;
+    cout << "CameraFOV 50" << endl;
 
     cout << "ObjectBegin \"Axis\"" << endl;
     cout << "Color 1 0 0" << endl;
@@ -238,7 +243,7 @@ int main() {
 
     // min and max of the boundary box that the particles should be contained in
     V3 min_bound = {0, 0, 0};
-    V3 max_bound = {20, 20, 20};
+    V3 max_bound = {15, 15, 15};
     V3 bound_size = {max_bound.x - min_bound.x, max_bound.y - min_bound.y,
                      max_bound.z - min_bound.z};
 
@@ -271,16 +276,16 @@ int main() {
     int frame_time = 1000 / target_fps;
     float dt = 1 / (float)target_fps;
 
-    float sphere_size = .5;
-    V3 slow_particle_color = {0, 1, 1};
-    V3 fast_particle_color = {1, 0, 0};
+    float sphere_size = .75;
+    V3 slow_particle_color = {.25, .8, .8};
+    V3 fast_particle_color = {.8, .25, .25};
 
     float particle_damping = .5;
 
-    float density_radius = 1.2;
+    float density_radius = 1.5;
     float particle_mass = 1;
 
-    float target_density = 1.5;
+    float target_density = 1.75;
 
     // how fast do we want particles to be target_density
     float pressure_multiplier = 100;
@@ -290,9 +295,11 @@ int main() {
 
     while (1) {
         cout << "FrameBegin " << frame_num << "\nWorldBegin\n";
-        // cout << "FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0\n";
-        //  cout << "ObjectInstance \"Axis\"\n";
-        //   cout << "Surface \"matte\"\n";
+        cout << "AmbientLight 0.6 0.7 0.8 0.8\n";
+        cout << "FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0\n";
+        cout << "PointLight -5 -5 -5 1 1 0 1\n";
+        // cout << "ObjectInstance \"Axis\"\n";
+        //    cout << "Surface \"matte\"\n";
 
         // auto start = std::chrono::high_resolution_clock::now();
         float fast_v = 0;
@@ -324,7 +331,7 @@ int main() {
         // }
 
         // vector<V3> nearest = get_nearest_particles(
-        //     grid_mapping, predicted_particles[16], density_radius);
+        //     grid, predicted_particles[16], density_radius);
         // predicted_particles[16].p();
         // for (int i = 0; i < nearest.size(); ++i) {
         //     nearest[i].p();
