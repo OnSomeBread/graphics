@@ -21,6 +21,7 @@ using std::vector;
 // IMPLEMENT MARCHING CUBES
 // FIX SPATIAL LOOK UP TABLE
 // ADD NEAR DENSITY AND NEAR PRESSURE FORCES
+// https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf
 
 float random_float(float low, float high) {
     return low + static_cast<float>(rand()) /
@@ -222,9 +223,9 @@ int main() {
     }
 
     float sphere_size = .6;
-    V3 slow_particle_color = {.25, .8, .8};
-    V3 fast_particle_color = {.8, .25, .25};
-    float fast_v = 10;  // highest value for color
+    V3 slow_particle_color = {.1, .25, 1};
+    V3 fast_particle_color = {.25, .55, .95};
+    float fast_v = 5;  // highest value for color
 
     float g = .8;
     float particle_mass = 1;
@@ -334,16 +335,12 @@ int main() {
                          min_bound, max_bound);
 
             cout << "XformPush\n";
-            // V3 particle_color =
-            //     interpolate(slow_particle_color, fast_particle_color,
-            //                 scale_t_val(magnitude(velocities[i]), 0,
-            //                 fast_v));
+            V3 particle_color =
+                interpolate(slow_particle_color, fast_particle_color,
+                            scale_t_val(magnitude(velocities[i]), 0, fast_v));
 
-            // cout << "Color " << particle_color.x << " " << particle_color.y
-            //      << " " << particle_color.z << " \n";
-            cout << "Color " << slow_particle_color.x << " "
-                 << slow_particle_color.y << " " << slow_particle_color.z
-                 << " \n";
+            cout << "Color " << particle_color.x << " " << particle_color.y
+                 << " " << particle_color.z << " \n";
             cout << "Translate " << particles[i].x << " " << particles[i].y
                  << " " << particles[i].z << "\n";
             cout << "Sphere " << sphere_size << " " << -sphere_size << " "
