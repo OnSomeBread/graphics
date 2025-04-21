@@ -11,6 +11,7 @@
 
 using std::max;
 using std::pow;
+using std::round;
 using std::unordered_map;
 using std::vector;
 
@@ -19,9 +20,12 @@ using std::vector;
 // EDGES HAVE GAPS
 // CLUMPS FORM
 // IMPLEMENT MARCHING CUBES
-// FIX SPATIAL LOOK UP TABLE
 // ADD NEAR DENSITY AND NEAR PRESSURE FORCES
 // https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf
+
+int hash_function(int x, int y, int z) {
+    return (x * 73856093) xor (y * 19349663) xor (z * 83492791);
+}
 
 float random_float(float low, float high) {
     return low + static_cast<float>(rand()) /
@@ -54,34 +58,29 @@ float dsmoothing(float radius, float diff) {
 
 vector<V3> get_nearest_particles(unordered_map<int, vector<V3>>& grid, V3 p,
                                  float density_radius) {
-    vector<V3> ans;
+    vector<V3> nearby;
     for (int i = -1; i < 2; ++i) {
         for (int j = -1; j < 2; j++) {
             for (int k = -1; k < 2; ++k) {
                 V3 idx = p / density_radius;
 
-                int grid_idx = idx.x + i * density_radius;
-                grid_idx <<= 8;
-                grid_idx += idx.y + j * density_radius;
-                grid_idx <<= 8;
-                grid_idx += idx.z + k * density_radius;
-                grid_idx <<= 8;
-
-                ans.insert(ans.end(), grid[grid_idx].begin(),
-                           grid[grid_idx].end());
+                int grid_idx = hash_function((int)idx.x + i, (int)idx.y + j,
+                                             (int)idx.z + k);
+                nearby.insert(nearby.end(), grid[grid_idx].begin(),
+                              grid[grid_idx].end());
             }
         }
     }
-    return ans;
+    return nearby;
 }
 
 // add all of the values from the smoothing function in relation to all other
 // particles including itself to prevent density = 0
-double calc_density(vector<V3>& particles, int pointidx, float radius,
+double calc_density(vector<V3>& particles, V3 particle, float radius,
                     float mass) {
     double density = 0;
     for (int i = 0; i < particles.size(); ++i) {
-        float d = magnitude(particles[i] - particles[pointidx]);
+        float d = magnitude(particles[i] - particle);
         density += mass * smoothing(radius, d);
     }
     return density;
@@ -268,21 +267,14 @@ int main() {
         // then when calculating densities or pressure forces only consider the
         // 3x3 grid of cells since the rest of the particles will add 0 anyway
         // bits 0-7 planes, bits 7-15 cols, and bits 16-23 is rows
-        // unordered_map<int, vector<V3>> grid;
+        unordered_map<int, vector<V3>> grid;
 
-        // // populate the particle grid
-        // for (int i = 0; i < predicted_particles.size(); ++i) {
-        //     V3 idx = predicted_particles[i] / density_radius;
-
-        //     int grid_idx = idx.x;
-        //     grid_idx <<= 8;
-        //     grid_idx += idx.y;
-        //     grid_idx <<= 8;
-        //     grid_idx += idx.z;
-        //     grid_idx <<= 8;
-
-        //     grid[grid_idx].push_back(predicted_particles[i]);
-        // }
+        // populate the particle grid
+        for (int i = 0; i < predicted_particles.size(); ++i) {
+            V3 idx = predicted_particles[i] / density_radius;
+            int grid_idx = hash_function((int)idx.x, (int)idx.y, (int)idx.z);
+            grid[grid_idx].push_back(predicted_particles[i]);
+        }
 
         // vector<V3> nearest = get_nearest_particles(
         //     grid, predicted_particles[16], density_radius);
@@ -290,6 +282,7 @@ int main() {
         // for (int i = 0; i < nearest.size(); ++i) {
         //     nearest[i].p();
         // }
+        // return 0;
 
         // for (auto itr = grid_mapping.begin(); itr != grid_mapping.end();
         //      ++itr) {
@@ -301,8 +294,10 @@ int main() {
 
         // create densities table for it to be used in pressure forces
         for (int i = 0; i < particles.size(); ++i) {
-            densities[i] = calc_density(predicted_particles, i, density_radius,
-                                        particle_mass);
+            vector<V3> nearby = get_nearest_particles(
+                grid, predicted_particles[i], density_radius);
+            densities[i] = calc_density(nearby, predicted_particles[i],
+                                        density_radius, particle_mass);
         }
 
         // add particle pressure forces
