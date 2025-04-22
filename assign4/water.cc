@@ -23,6 +23,13 @@ using std::vector;
 // ADD NEAR DENSITY AND NEAR PRESSURE FORCES
 // https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf
 
+// massive optimization to allow for more particles
+// split the bounding box into grid squares of size density_radius
+// then when calculating densities or pressure forces only consider the
+// 3x3 grid of cells since the rest of the particles will add 0 anyway
+// bits 0-7 planes, bits 7-15 cols, and bits 16-23 is rows
+unordered_map<int, vector<V3>> grid;
+
 int hash_function(int x, int y, int z) {
     return (x * 73856093) xor (y * 19349663) xor (z * 83492791);
 }
@@ -56,8 +63,7 @@ float dsmoothing(float radius, float diff) {
            volume;
 }
 
-vector<V3> get_nearest_particles(unordered_map<int, vector<V3>>& grid, V3 p,
-                                 float density_radius) {
+vector<V3> get_nearest_particles(V3 p, float density_radius) {
     vector<V3> nearby;
     for (int i = -1; i < 2; ++i) {
         for (int j = -1; j < 2; j++) {
@@ -163,6 +169,10 @@ float scale_t_val(float value, float data_min, float data_max) {
 
 V3 interpolate(V3 start, V3 end, float t) { return (end - start) * t + start; }
 
+// an optimization idea change translate to be diff between particles so no need
+// for xformpush or xformpops
+// V3 change_origin(V3 origin, V3 p) { return (p - origin) + origin; }
+
 int main() {
     cout << "Display \"Objects\"  \"Screen\"  \"rgbdouble\"" << endl;
     cout << "Background 0.6 0.7 0.8" << endl;
@@ -187,9 +197,9 @@ int main() {
     vector<V3> predicted_particles;
     vector<double> densities;
 
-    int rows = 6;
-    int cols = 6;
-    int planes = 6;
+    int rows = 8;
+    int cols = 8;
+    int planes = 8;
 
     // min and max of the boundary box that the particles should be contained in
     V3 min_bound = {0, 0, 0};
@@ -221,7 +231,7 @@ int main() {
         }
     }
 
-    float sphere_size = .6;
+    float sphere_size = .5;
     V3 slow_particle_color = {.1, .25, 1};
     V3 fast_particle_color = {.25, .55, .95};
     float fast_v = 5;  // highest value for color
@@ -237,15 +247,15 @@ int main() {
     float pressure_multiplier = 30;
     float viscosity_multiplier = .3;
 
-    auto last_frame_time = std::chrono::high_resolution_clock::now();
-
     long unsigned frame_num = 0;
+    auto last_frame_time = std::chrono::high_resolution_clock::now();
     while (1) {
         auto curr = std::chrono::high_resolution_clock::now();
         double dt = std::chrono::duration_cast<std::chrono::microseconds>(
                         curr - last_frame_time)
                         .count() /
                     1000000.0f;
+
         last_frame_time = curr;
 
         cout << "FrameBegin " << frame_num << "\nWorldBegin\n";
@@ -262,40 +272,18 @@ int main() {
             predicted_particles[i] = particles[i] + velocities[i] * dt;
         }
 
-        // massive optimization to allow for more particles
-        // split the bounding box into grid squares of size density_radius
-        // then when calculating densities or pressure forces only consider the
-        // 3x3 grid of cells since the rest of the particles will add 0 anyway
-        // bits 0-7 planes, bits 7-15 cols, and bits 16-23 is rows
-        unordered_map<int, vector<V3>> grid;
-
         // populate the particle grid
+        grid.clear();
         for (int i = 0; i < predicted_particles.size(); ++i) {
             V3 idx = predicted_particles[i] / density_radius;
             int grid_idx = hash_function((int)idx.x, (int)idx.y, (int)idx.z);
             grid[grid_idx].push_back(predicted_particles[i]);
         }
 
-        // vector<V3> nearest = get_nearest_particles(
-        //     grid, predicted_particles[16], density_radius);
-        // predicted_particles[16].p();
-        // for (int i = 0; i < nearest.size(); ++i) {
-        //     nearest[i].p();
-        // }
-        // return 0;
-
-        // for (auto itr = grid_mapping.begin(); itr != grid_mapping.end();
-        //      ++itr) {
-        //     cout << itr->first << endl;
-        //     for (int i = 0; i < itr->second.size(); ++i) {
-        //         itr->second[i].p();
-        //     }
-        // }
-
         // create densities table for it to be used in pressure forces
         for (int i = 0; i < particles.size(); ++i) {
-            vector<V3> nearby = get_nearest_particles(
-                grid, predicted_particles[i], density_radius);
+            vector<V3> nearby =
+                get_nearest_particles(predicted_particles[i], density_radius);
             densities[i] = calc_density(nearby, predicted_particles[i],
                                         density_radius, particle_mass);
         }
@@ -329,17 +317,21 @@ int main() {
             bounds_check(particles[i], velocities[i], particle_damping,
                          min_bound, max_bound);
 
-            cout << "XformPush\n";
             V3 particle_color =
                 interpolate(slow_particle_color, fast_particle_color,
                             scale_t_val(magnitude(velocities[i]), 0, fast_v));
 
             cout << "Color " << particle_color.x << " " << particle_color.y
                  << " " << particle_color.z << " \n";
-            cout << "Translate " << particles[i].x << " " << particles[i].y
-                 << " " << particles[i].z << "\n";
-            cout << "Sphere " << sphere_size << " " << -sphere_size << " "
-                 << sphere_size << " 360\nXformPop\n";
+
+            cout << "XformPush\nTranslate " << particles[i].x << " "
+                 << particles[i].y << " " << particles[i].z << "\n";
+
+            cout << "Scale " << sphere_size << " " << sphere_size << " "
+                 << sphere_size << "\nCube\nXformPop\n";
+
+            // cout << "Sphere " << sphere_size << " " << -sphere_size << " "
+            //      << sphere_size << " 360\nXformPop\n";
         }
         // auto end2 = std::chrono::high_resolution_clock::now();
 
