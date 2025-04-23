@@ -1,17 +1,19 @@
+#include "water.h"
+
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
 
 #include <chrono>
+#include <cmath>
 #include <thread>
 #include <unordered_map>
 #include <vector>
 
-#include "proj4.h"
-
 using std::max;
 using std::pow;
 using std::round;
+using std::sqrt;
 using std::unordered_map;
 using std::vector;
 
@@ -30,6 +32,7 @@ using std::vector;
 // bits 0-7 planes, bits 7-15 cols, and bits 16-23 is rows
 unordered_map<int, vector<V3>> grid;
 
+// the spatial
 int hash_function(int x, int y, int z) {
     return (x * 73856093) xor (y * 19349663) xor (z * 83492791);
 }
@@ -48,7 +51,7 @@ V3 random_dir_float() {
     return {random_float(-1, 1), random_float(-1, 1), random_float(-1, 1)};
 }
 
-float magnitude(V3 v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+float magnitude(V3 v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
 // cubic smoothing function
 float smoothing(float radius, float diff) {
@@ -85,7 +88,7 @@ vector<V3> get_nearest_particles(V3 p, float density_radius) {
 double calc_density(vector<V3>& particles, V3 particle, float radius,
                     float mass) {
     double density = 0;
-    for (int i = 0; i < particles.size(); ++i) {
+    for (int i = 0; i < (int)particles.size(); ++i) {
         float d = magnitude(particles[i] - particle);
         density += mass * smoothing(radius, d);
     }
@@ -97,7 +100,7 @@ V3 pressure_force(vector<V3>& particles, int pointidx,
                   vector<double>& densities, float target_density, float radius,
                   float mass) {
     V3 pressure;
-    for (int i = 0; i < particles.size(); ++i) {
+    for (int i = 0; i < (int)particles.size(); ++i) {
         // cant use the current particle otherwise creates nans
         if (i == pointidx) continue;
 
@@ -122,7 +125,7 @@ V3 pressure_force(vector<V3>& particles, int pointidx,
 V3 viscosity_force(vector<V3>& particles, int pointidx, vector<V3>& velocities,
                    float radius) {
     V3 viscosity;
-    for (int i = 0; i < particles.size(); ++i) {
+    for (int i = 0; i < (int)particles.size(); ++i) {
         if (i == pointidx) continue;
         float d = magnitude(particles[pointidx] - particles[i]);
         viscosity +=
@@ -267,21 +270,21 @@ int main() {
 
         // auto start = std::chrono::high_resolution_clock::now();
         // add gravitational forces to particles
-        for (int i = 0; i < particles.size(); ++i) {
+        for (int i = 0; i < (int)particles.size(); ++i) {
             velocities[i].z += -g * dt;
             predicted_particles[i] = particles[i] + velocities[i] * dt;
         }
 
         // populate the particle grid
         grid.clear();
-        for (int i = 0; i < predicted_particles.size(); ++i) {
+        for (int i = 0; i < (int)predicted_particles.size(); ++i) {
             V3 idx = predicted_particles[i] / density_radius;
             int grid_idx = hash_function((int)idx.x, (int)idx.y, (int)idx.z);
             grid[grid_idx].push_back(predicted_particles[i]);
         }
 
         // create densities table for it to be used in pressure forces
-        for (int i = 0; i < particles.size(); ++i) {
+        for (int i = 0; i < (int)particles.size(); ++i) {
             vector<V3> nearby =
                 get_nearest_particles(predicted_particles[i], density_radius);
             densities[i] = calc_density(nearby, predicted_particles[i],
@@ -290,7 +293,7 @@ int main() {
 
         // add particle pressure forces
         // tells the particle how fast it should conform to target density
-        for (int i = 0; i < particles.size(); ++i) {
+        for (int i = 0; i < (int)particles.size(); ++i) {
             V3 pressure_accel =
                 pressure_force(predicted_particles, i, densities,
                                target_density, density_radius, particle_mass) *
@@ -302,7 +305,7 @@ int main() {
         // add viscosity force
         // creates friction between nearby particles so that particles within
         // the radius have similar velocities
-        for (int i = 0; i < particles.size(); ++i) {
+        for (int i = 0; i < (int)particles.size(); ++i) {
             velocities[i] +=
                 viscosity_force(particles, i, velocities, density_radius) *
                 viscosity_multiplier;
@@ -312,7 +315,7 @@ int main() {
 
         // auto end = std::chrono::high_resolution_clock::now();
         // auto start2 = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < particles.size(); ++i) {
+        for (int i = 0; i < (int)particles.size(); ++i) {
             particles[i] += velocities[i] * dt;
             bounds_check(particles[i], velocities[i], particle_damping,
                          min_bound, max_bound);

@@ -1,10 +1,10 @@
-# export CXXFLAGS="-std=c++11"
-# g++ -o rd_view libcs630.a proj3.o -lX11 -lm 
-# -Werror -Wextra -Wall -pedantic 
-CXXFLAGS= -std=c++14 -O3 
+CXXFLAGS= -std=c++14 -O3 -Werror -Wextra -Wall -pedantic -I.
+all: water
 
 water: water.o
-	g++ -c -I. water.cc
+	g++  ${CXXFLAGS} -o water water.o
+
+water.o: water.cc water.h
 
 clean:
 	rm -f *.o water
