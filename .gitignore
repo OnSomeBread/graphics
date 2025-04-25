@@ -1,7 +1,7 @@
 /.DS_Store
 /.vscode
-assign3/libcs630.a
-assign4/libcs630.a
+bezier\ curves\ and\ surfaces/libcs630.a
+superquadrics\ and\ particles\ systems/libcs630.a
 createFrames.py
 calculations.py
 cview.cc

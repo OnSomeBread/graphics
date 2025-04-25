@@ -1,7 +1,20 @@
+#include <stdlib.h>
+#include <time.h>
+
+#include <cmath>
+#include <fstream>
 #include <iostream>
+#include <string>
+#include <vector>
 
 using std::cout;
 using std::endl;
+using std::max;
+using std::min;
+using std::pow;
+using std::string;
+using std::to_string;
+using std::vector;
 
 struct V3 {
     float x = 0;
@@ -75,3 +88,11 @@ struct V3 {
         cout << "x:" << this->x << " y:" << this->y << " z:" << this->z << endl;
     }
 };
+
+void print_vec(vector<vector<int>>& X);
+
+float magnitude(V3 v);
+
+V3 interpolate(V3 start, V3 end, float t);
+
+float scale_t_val(float value, float data_min, float data_max);

@@ -1,4 +1,4 @@
-CXXFLAGS = -std=c++11 -Werror -Wextra -Wall -pedantic -I.
+CXXFLAGS = -std=c++14 -Wextra -Wall -pedantic -I.
 
 proj5: proj5.o
 	g++ $(CXXFLAGS) -o proj5 proj5.o
