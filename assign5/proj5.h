@@ -93,6 +93,6 @@ void print_vec(vector<vector<int>>& X);
 
 float magnitude(V3 v);
 
-V3 interpolate(V3 start, V3 end, float t);
+V3 interpolate(V3 start, V3 end, double t);
 
-float scale_t_val(float value, float data_min, float data_max);
+double scale_t_val(double value, double data_min, double data_max);

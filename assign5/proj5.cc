@@ -10,8 +10,7 @@ double gaussian(double low = -3, double high = 3, double mu = 0,
                 double div = 1) {
     double x = random_float(low, high);
     return 1.0 / (div * sqrt(2.0 * M_PI)) *
-           exp(-.5 *
-               pow((x - mu) / div, 2.0));  // * (std::signbit(x) ? -1.0 : 1.0)
+           exp(-.5 * pow((x - mu) / div, 2.0)) * (std::signbit(x) ? -1.0 : 1.0);
 }
 
 // find the mid point in a triangle with small random factor
@@ -100,10 +99,18 @@ void MidPointFM2D(vector<vector<double>>& X, int maxlevel, double sigma,
     }
 }
 
-int main() {
-    double sigma = 30;
-    double D = 2.2;
+int main(int argc, char* argv[]) {
+    // if (argc != 4) {
+    //     cout << "Usage n D sigma" << endl;
+    //     return 1;
+    // }
+    // int n = std::stoi(argv[1]);
+    // double D = std::stod(argv[2]);
+    // double sigma = std::stoi(argv[3]);
+
     int n = 6;
+    double D = 2.2;
+    double sigma = 30;
 
     int N = pow(2, n);
     vector<vector<double>> X(N + 1, vector<double>(N + 1));
@@ -112,7 +119,7 @@ int main() {
     MidPointFM2D(X, n, sigma, 3 - D);
 
     V3 low_color = {0, 0, 0};
-    V3 high_color = {.7, .7, .7};
+    V3 high_color = {.5, .5, .5};
 
     // create the polyset coords
     vector<V3> coords;
@@ -132,16 +139,16 @@ int main() {
 
     // create the polyset faces
     vector<vector<int>> faceList;
-    int faceNum = 0;
+
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
+            int faceNum = i * (N + 1) + j;
             vector<int> face;
             face.push_back(faceNum);
             face.push_back(faceNum + N + 1);
             face.push_back(faceNum + N + 2);
             face.push_back(faceNum + 1);
             faceList.push_back(face);
-            faceNum++;
         }
     }
 
@@ -150,21 +157,23 @@ int main() {
     cout << "Background 0.6 0.7 0.8" << endl;
     cout << "CameraUp 0 0 1" << endl;
     cout << "CameraAt 50 50 10" << endl;
-    cout << "CameraEye 10 -50 100" << endl;
+    cout << "CameraEye 50 -50 100" << endl;
     cout << "CameraFOV 30" << endl;
     // cout << "OptionBool \"DoubleSide\" on" << endl;
 
     cout << "WorldBegin" << endl;
-    cout << "AmbientLight 0.6 0.7 0.8 0.8" << endl;
+    cout << "AmbientLight 0.6 0.7 0.8 0.5" << endl;
     cout << "FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0" << endl;
-    cout << "PointLight -5 -5 -5 1 1 0 1" << endl;
+    // cout << "PointLight 5 5 5 1 1 0 1" << endl;
+    cout << "PointLight 25 25 50 1 1 0 1" << endl;
+    cout << "PointLight 0 25 50 1 1 0 1" << endl;
+    cout << "PointLight 25 0 50 1 1 0 1" << endl;
     cout << "PolySet \"PC\" " << coords.size() << " " << faceList.size()
          << endl;
 
     for (int i = 0; i < (int)coords.size(); ++i) {
-        V3 color =
-            interpolate(low_color, high_color,
-                        scale_t_val(magnitude(coords[i]), lowest, highest));
+        V3 color = interpolate(low_color, high_color,
+                               scale_t_val(coords[i].z, lowest, highest));
         cout << coords[i].x << " " << coords[i].y << " " << coords[i].z << " "
              << color.x << " " << color.y << " " << color.z << endl;
     }
