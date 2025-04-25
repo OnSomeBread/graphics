@@ -1,4 +1,4 @@
-CXXFLAGS= -std=c++14 -O3 -Werror -Wextra -Wall -pedantic -I.
+CXXFLAGS= -std=c++14 -O3 -Wextra -Wall -pedantic -I.
 all: water
 
 water: water.o

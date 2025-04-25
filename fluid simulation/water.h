@@ -4,9 +4,9 @@ using std::cout;
 using std::endl;
 
 struct V3 {
-    float x = 0;
-    float y = 0;
-    float z = 0;
+    double x = 0;
+    double y = 0;
+    double z = 0;
 
     V3 operator+(V3 coord) {
         V3 ans;
@@ -75,3 +75,5 @@ struct V3 {
         cout << "x:" << this->x << " y:" << this->y << " z:" << this->z << endl;
     }
 };
+
+V3 interpolate(V3 start, V3 end, float t) { return (end - start) * t + start; }

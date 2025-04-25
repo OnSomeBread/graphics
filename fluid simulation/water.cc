@@ -1,5 +1,3 @@
-#include "water.h"
-
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
@@ -9,6 +7,8 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+
+#include "marching_cubes.cc"
 
 using std::max;
 using std::pow;
@@ -31,10 +31,11 @@ using std::vector;
 // 3x3 grid of cells since the rest of the particles will add 0 anyway
 // bits 0-7 planes, bits 7-15 cols, and bits 16-23 is rows
 unordered_map<int, vector<V3>> grid;
+int grid_size = 1000;
 
 // the spatial
 int hash_function(int x, int y, int z) {
-    return (x * 73856093) xor (y * 19349663) xor (z * 83492791);
+    return ((x * 73856093) xor (y * 19349663) xor (z * 83492791)) % grid_size;
 }
 
 float random_float(float low, float high) {
@@ -54,25 +55,24 @@ V3 random_dir_float() {
 float magnitude(V3 v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
 // cubic smoothing function
-float smoothing(float radius, float diff) {
-    float volume = (64 * M_PI * pow(radius, 9)) / 315;
-    return pow(max(0.0f, radius * radius - diff * diff), 3) / volume;
+double smoothing(double radius, double diff) {
+    double volume = (64 * M_PI * pow(radius, 9)) / 315;
+    return pow(max(0.0, radius * radius - diff * diff), 3) / volume;
 }
 
 // derivative of the smoothing function
-float dsmoothing(float radius, float diff) {
-    float volume = (64 * M_PI * pow(radius, 9)) / 315;
-    return -6 * pow(max(0.0f, radius * radius - diff * diff), 2) * diff /
-           volume;
+double dsmoothing(double radius, double diff) {
+    double volume = (64 * M_PI * pow(radius, 9)) / 315;
+    return -6 * pow(max(0.0, radius * radius - diff * diff), 2) * diff / volume;
 }
 
 vector<V3> get_nearest_particles(V3 p, float density_radius) {
     vector<V3> nearby;
+    V3 idx = p / density_radius;
+
     for (int i = -1; i < 2; ++i) {
         for (int j = -1; j < 2; j++) {
             for (int k = -1; k < 2; ++k) {
-                V3 idx = p / density_radius;
-
                 int grid_idx = hash_function((int)idx.x + i, (int)idx.y + j,
                                              (int)idx.z + k);
                 nearby.insert(nearby.end(), grid[grid_idx].begin(),
@@ -100,6 +100,7 @@ V3 pressure_force(vector<V3>& particles, int pointidx,
                   vector<double>& densities, float target_density, float radius,
                   float mass) {
     V3 pressure;
+
     for (int i = 0; i < (int)particles.size(); ++i) {
         // cant use the current particle otherwise creates nans
         if (i == pointidx) continue;
@@ -128,8 +129,8 @@ V3 viscosity_force(vector<V3>& particles, int pointidx, vector<V3>& velocities,
     for (int i = 0; i < (int)particles.size(); ++i) {
         if (i == pointidx) continue;
         float d = magnitude(particles[pointidx] - particles[i]);
-        viscosity +=
-            (velocities[i] - velocities[pointidx]) * smoothing(radius, d);
+        float s = smoothing(radius, d);
+        viscosity += (velocities[i] - velocities[pointidx]) * s;
     }
 
     return viscosity;
@@ -169,8 +170,6 @@ void bounds_check(V3& point, V3& v, float damping, V3 min_pos, V3 max_pos) {
 float scale_t_val(float value, float data_min, float data_max) {
     return (value - data_min) / (data_max - data_min);
 }
-
-V3 interpolate(V3 start, V3 end, float t) { return (end - start) * t + start; }
 
 // an optimization idea change translate to be diff between particles so no need
 // for xformpush or xformpops
@@ -217,6 +216,8 @@ int main() {
                   (bound_size.y - extra.y) / cols,
                   (bound_size.z - extra.z) / planes};
 
+    // make a particle grid with some randomization in how they are placed along
+    // the grid
     for (int i = 0; i < rows; ++i) {
         pos.x = i * spacing.x;
         for (int j = 0; j < cols; ++j) {
@@ -239,16 +240,27 @@ int main() {
     V3 fast_particle_color = {.25, .55, .95};
     float fast_v = 5;  // highest value for color
 
-    float g = .8;
-    float particle_mass = 1;
+    double g = .8;
+    double particle_mass = 1;
 
-    float particle_damping = .9;
-    float density_radius = 1.75;
-    float target_density = 2;
+    double particle_damping = .9;
+    double density_radius = 1.75;
+    double target_density = 2;
+
+    // for the marching cubes algo
+
+    float surfacelvl = .2;
+    float field_size = 1.1;
+    int field_rows = bound_size.x / field_size + 1.0f;
+    int field_cols = bound_size.y / field_size + 1.0f;
+    int field_planes = bound_size.z / field_size + 1.0f;
+    vector<vector<vector<float>>> data(
+        field_rows,
+        vector<vector<float>>(field_cols, vector<float>(field_planes, 0)));
 
     // how fast do we want particles to be target_density
     float pressure_multiplier = 30;
-    float viscosity_multiplier = .3;
+    float viscosity_multiplier = .4;
 
     long unsigned frame_num = 0;
     auto last_frame_time = std::chrono::high_resolution_clock::now();
@@ -309,17 +321,34 @@ int main() {
             velocities[i] +=
                 viscosity_force(particles, i, velocities, density_radius) *
                 viscosity_multiplier;
-
-            // fast_v = max(fast_v, magnitude(velocities[i]));
         }
 
-        // auto end = std::chrono::high_resolution_clock::now();
-        // auto start2 = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < (int)particles.size(); ++i) {
             particles[i] += velocities[i] * dt;
             bounds_check(particles[i], velocities[i], particle_damping,
                          min_bound, max_bound);
+        }
 
+        // for (int i = 0; i < field_rows; ++i) {
+        //     for (int j = 0; j < field_cols; ++j) {
+        //         for (int k = 0; k < field_planes; ++k) {
+        //             V3 field_particle = {(float)i * field_size + .5f,
+        //                                  (float)j * field_size + .5f,
+        //                                  (float)k * field_size + .5f};
+
+        //             vector<V3> nearby =
+        //                 get_nearest_particles(field_particle,
+        //                 density_radius);
+        //             data[i][j][k] = calc_density(nearby, field_particle,
+        //                                          density_radius,
+        //                                          particle_mass);
+        //         }
+        //     }
+        // }
+
+        // marching_cubes(data, surfacelvl);
+
+        for (int i = 0; i < (int)particles.size(); ++i) {
             V3 particle_color =
                 interpolate(slow_particle_color, fast_particle_color,
                             scale_t_val(magnitude(velocities[i]), 0, fast_v));
@@ -336,17 +365,6 @@ int main() {
             // cout << "Sphere " << sphere_size << " " << -sphere_size << " "
             //      << sphere_size << " 360\nXformPop\n";
         }
-        // auto end2 = std::chrono::high_resolution_clock::now();
-
-        // auto duration =
-        //     std::chrono::duration_cast<std::chrono::microseconds>(end -
-        //     start);
-        // auto duration2 =
-        // std::chrono::duration_cast<std::chrono::microseconds>(
-        //     end2 - start2);
-
-        // cout << duration.count() << "m" << endl;
-        // cout << duration2.count() << "m" << endl;
 
         cout << "WorldEnd\nFrameEnd\n";
         frame_num++;
