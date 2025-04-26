@@ -24,7 +24,8 @@ double f4(double delta, double x0, double x1, double x2, double x3) {
 }
 
 void MidPointFM2D(vector<vector<double>>& X, int maxlevel, double sigma,
-                  double H, int seed = time(NULL)) {
+                  double H, int seed) {
+    std::cerr << "seed: " << seed << endl;
     srand(seed);
     int N = pow(2, maxlevel);
     int D = N;
@@ -100,26 +101,27 @@ void MidPointFM2D(vector<vector<double>>& X, int maxlevel, double sigma,
 }
 
 int main(int argc, char* argv[]) {
-    // if (argc != 4) {
-    //     cout << "Usage n D sigma" << endl;
-    //     return 1;
-    // }
-    // int n = std::stoi(argv[1]);
-    // double D = std::stod(argv[2]);
-    // double sigma = std::stoi(argv[3]);
+    if (argc != 4 && argc != 5) {
+        std::cerr << "Usage ./proj5 n D sigma (optional)seed" << endl;
+        return 1;
+    }
+    int n = std::stoi(argv[1]);
+    double D = std::stod(argv[2]);
+    double sigma = std::stoi(argv[3]);
+    int seed = time(NULL);
+    if (argc == 5) {
+        seed = std::stoi(argv[4]);
+    }
 
-    int n = 6;
-    double D = 2.2;
-    double sigma = 30;
+    // int n = 5;
+    // double D = 2.2;
+    // double sigma = 30;
 
     int N = pow(2, n);
     vector<vector<double>> X(N + 1, vector<double>(N + 1));
 
     // populate the
-    MidPointFM2D(X, n, sigma, 3 - D);
-
-    V3 low_color = {0, 0, 0};
-    V3 high_color = {.5, .5, .5};
+    MidPointFM2D(X, n, sigma, 3 - D, seed);
 
     // create the polyset coords
     vector<V3> coords;
@@ -136,6 +138,9 @@ int main(int argc, char* argv[]) {
             lowest = min(lowest, (float)X[x][y]);
         }
     }
+
+    V3 low_color = {.33, .42, .18};
+    V3 high_color = {.74, .72, .42};
 
     // create the polyset faces
     vector<vector<int>> faceList;
@@ -188,6 +193,7 @@ int main(int argc, char* argv[]) {
     cout << "WorldEnd" << endl;
 }
 
+// print out all of the values of a 2d vector
 void print_vec(vector<vector<int>>& X) {
     for (int i = 0; i < (int)X.size(); ++i) {
         for (int j = 0; j < (int)X.size(); ++j) {
@@ -206,3 +212,5 @@ double scale_t_val(double value, double data_min, double data_max) {
 V3 interpolate(V3 start, V3 end, double t) { return (end - start) * t + start; }
 
 float magnitude(V3 v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+
+// V3 calculate_color() {}
