@@ -181,7 +181,7 @@ int main() {
     cout << "CameraUp 0 0 1" << endl;
     cout << "CameraAt 5 0 6" << endl;
     cout << "CameraEye -4 -15 16" << endl;
-    cout << "CameraFOV 50" << endl;
+    cout << "CameraFOV 40" << endl;
 
     cout << "ObjectBegin \"Axis\"" << endl;
     cout << "Color 1 0 0" << endl;
@@ -205,7 +205,7 @@ int main() {
 
     // min and max of the boundary box that the particles should be contained in
     V3 min_bound = {0, 0, 0};
-    V3 max_bound = {15, 15, 15};
+    V3 max_bound = {21, 21, 21};
     V3 bound_size = {max_bound.x - min_bound.x, max_bound.y - min_bound.y,
                      max_bound.z - min_bound.z};
 
@@ -235,10 +235,10 @@ int main() {
         }
     }
 
-    float sphere_size = .5;
+    float sphere_size = .4;
     V3 slow_particle_color = {.1, .25, 1};
     V3 fast_particle_color = {.25, .55, .95};
-    float fast_v = 5;  // highest value for color
+    float fast_v = 4;  // highest value for color
 
     double g = .8;
     double particle_mass = 1;
@@ -250,7 +250,7 @@ int main() {
     // for the marching cubes algo
 
     float surfacelvl = .2;
-    float field_size = 1.1;
+    float field_size = 2;
     int field_rows = bound_size.x / field_size + 1.0f;
     int field_cols = bound_size.y / field_size + 1.0f;
     int field_planes = bound_size.z / field_size + 1.0f;
@@ -332,9 +332,10 @@ int main() {
         // for (int i = 0; i < field_rows; ++i) {
         //     for (int j = 0; j < field_cols; ++j) {
         //         for (int k = 0; k < field_planes; ++k) {
-        //             V3 field_particle = {(float)i * field_size + .5f,
-        //                                  (float)j * field_size + .5f,
-        //                                  (float)k * field_size + .5f};
+        //             V3 field_particle = {
+        //                 (float)i * field_size + field_size * .5,
+        //                 (float)j * field_size + field_size * .5,
+        //                 (float)k * field_size + field_size * .5};
 
         //             vector<V3> nearby =
         //                 get_nearest_particles(field_particle,
@@ -354,13 +355,13 @@ int main() {
                             scale_t_val(magnitude(velocities[i]), 0, fast_v));
 
             cout << "Color " << particle_color.x << " " << particle_color.y
-                 << " " << particle_color.z << " \n";
+                 << " " << particle_color.z << " ";
 
-            cout << "XformPush\nTranslate " << particles[i].x << " "
-                 << particles[i].y << " " << particles[i].z << "\n";
-
+            cout << "XformPush Translate " << particles[i].x << " "
+                 << particles[i].y << " " << particles[i].z << " ";
             cout << "Scale " << sphere_size << " " << sphere_size << " "
-                 << sphere_size << "\nCube\nXformPop\n";
+                 << sphere_size << " ";
+            cout << "Cube XformPop ";
 
             // cout << "Sphere " << sphere_size << " " << -sphere_size << " "
             //      << sphere_size << " 360\nXformPop\n";
