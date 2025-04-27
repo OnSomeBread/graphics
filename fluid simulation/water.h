@@ -77,3 +77,21 @@ struct V3 {
 };
 
 V3 interpolate(V3 start, V3 end, float t) { return (end - start) * t + start; }
+
+float magnitude(V3 v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+
+void bounds_check(V3& point, V3& v, float damping, V3 min_pos, V3 max_pos);
+
+float random_float(float low, float high) {
+    return low + static_cast<float>(rand()) /
+                     (static_cast<float>(RAND_MAX / (high - low)));
+}
+
+V3 random_dir() {
+    return {(float)(rand() % 3 - 1), (float)(rand() % 3 - 1),
+            (float)(rand() % 3 - 1)};
+}
+
+V3 random_dir_float() {
+    return {random_float(-1, 1), random_float(-1, 1), random_float(-1, 1)};
+}

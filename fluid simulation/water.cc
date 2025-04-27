@@ -38,32 +38,38 @@ int hash_function(int x, int y, int z) {
     return ((x * 73856093) xor (y * 19349663) xor (z * 83492791)) % grid_size;
 }
 
-float random_float(float low, float high) {
-    return low + static_cast<float>(rand()) /
-                     (static_cast<float>(RAND_MAX / (high - low)));
-}
-
-V3 random_dir() {
-    return {(float)(rand() % 3 - 1), (float)(rand() % 3 - 1),
-            (float)(rand() % 3 - 1)};
-}
-
-V3 random_dir_float() {
-    return {random_float(-1, 1), random_float(-1, 1), random_float(-1, 1)};
-}
-
-float magnitude(V3 v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
-
 // cubic smoothing function
 double smoothing(double radius, double diff) {
-    double volume = (64 * M_PI * pow(radius, 9)) / 315;
-    return pow(max(0.0, radius * radius - diff * diff), 3) / volume;
+    if (diff < radius) {
+        double volume = (64 * M_PI * pow(radius, 9)) / 315.0;
+        return pow(radius * radius - diff * diff, 3) / volume;
+    }
+    return 0;
+}
+
+float steeperSmoothing(float dst, float radius) {
+    if (dst < radius) {
+        double volume = (M_PI * pow(radius, 6)) / 15.0;
+        return pow(radius - dst, 3) * volume;
+    }
+    return 0;
 }
 
 // derivative of the smoothing function
 double dsmoothing(double radius, double diff) {
-    double volume = (64 * M_PI * pow(radius, 9)) / 315;
-    return -6 * pow(max(0.0, radius * radius - diff * diff), 2) * diff / volume;
+    if (diff < radius) {
+        double volume = (64 * M_PI * pow(radius, 9)) / 315.0;
+        return -6 * pow(radius * radius - diff * diff, 2) * diff / volume;
+    }
+    return 0;
+}
+
+float DsteeperSmoothing(float dst, float radius) {
+    if (dst <= radius) {
+        double volume = (pow(radius, 6) * M_PI) / 35.0;
+        return -pow(radius - dst, 2) / volume;
+    }
+    return 0;
 }
 
 vector<V3> get_nearest_particles(V3 p, float density_radius) {
@@ -136,36 +142,6 @@ V3 viscosity_force(vector<V3>& particles, int pointidx, vector<V3>& velocities,
     return viscosity;
 }
 
-// changes particle pos and velocity if out of bounds
-void bounds_check(V3& point, V3& v, float damping, V3 min_pos, V3 max_pos) {
-    if (point.x < min_pos.x) {
-        point.x = min_pos.x;
-        v.x = v.x * -damping;
-    }
-    if (point.x > max_pos.x) {
-        point.x = max_pos.x;
-        v.x = v.x * -damping;
-    }
-
-    if (point.y < min_pos.y) {
-        point.y = min_pos.y;
-        v.y = v.y * -damping;
-    }
-    if (point.y > max_pos.y) {
-        point.y = max_pos.y;
-        v.y = v.y * -damping;
-    }
-
-    if (point.z < min_pos.z) {
-        point.z = min_pos.z;
-        v.z = v.z * -damping;
-    }
-    if (point.z > max_pos.z) {
-        point.z = max_pos.z;
-        v.z = v.z * -damping;
-    }
-}
-
 // used to create a t value for interpolate ie a value between 0-1
 float scale_t_val(float value, float data_min, float data_max) {
     return (value - data_min) / (data_max - data_min);
@@ -199,9 +175,9 @@ int main() {
     vector<V3> predicted_particles;
     vector<double> densities;
 
-    int rows = 8;
-    int cols = 8;
-    int planes = 8;
+    int rows = 9;
+    int cols = 9;
+    int planes = 9;
 
     // min and max of the boundary box that the particles should be contained in
     V3 min_bound = {0, 0, 0};
@@ -243,8 +219,8 @@ int main() {
     double g = .8;
     double particle_mass = 1;
 
-    double particle_damping = .9;
-    double density_radius = 1.75;
+    double particle_damping = .05;
+    double density_radius = 1.9;
     double target_density = 2;
 
     // for the marching cubes algo
@@ -263,8 +239,9 @@ int main() {
     float viscosity_multiplier = .4;
 
     long unsigned frame_num = 0;
+    int frame_count = 1000;
     auto last_frame_time = std::chrono::high_resolution_clock::now();
-    while (1) {
+    while (--frame_count) {
         auto curr = std::chrono::high_resolution_clock::now();
         double dt = std::chrono::duration_cast<std::chrono::microseconds>(
                         curr - last_frame_time)
@@ -273,10 +250,10 @@ int main() {
 
         last_frame_time = curr;
 
-        cout << "FrameBegin " << frame_num << "\nWorldBegin\n";
-        cout << "AmbientLight 0.6 0.7 0.8 0.8\n";
-        cout << "FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0\n";
-        cout << "PointLight -5 -5 -5 1 1 0 1\n";
+        cout << "FrameBegin " << frame_num << " WorldBegin ";
+        cout << "AmbientLight 0.6 0.7 0.8 0.8 ";
+        cout << "FarLight -1.0 0.0 -1.0 1.0 1.0 1.0 1.0 ";
+        cout << "PointLight -5 -5 -5 1 1 0 1 ";
         // cout << "ObjectInstance \"Axis\"\n";
         // cout << "Surface \"plastic\"\n";
 
@@ -367,7 +344,37 @@ int main() {
             //      << sphere_size << " 360\nXformPop\n";
         }
 
-        cout << "WorldEnd\nFrameEnd\n";
+        cout << "WorldEnd FrameEnd ";
         frame_num++;
+    }
+}
+
+// changes particle pos and velocity if out of bounds
+void bounds_check(V3& point, V3& v, float damping, V3 min_pos, V3 max_pos) {
+    if (point.x < min_pos.x) {
+        point.x = min_pos.x;
+        v.x = v.x * -damping;
+    }
+    if (point.x > max_pos.x) {
+        point.x = max_pos.x;
+        v.x = v.x * -damping;
+    }
+
+    if (point.y < min_pos.y) {
+        point.y = min_pos.y;
+        v.y = v.y * -damping;
+    }
+    if (point.y > max_pos.y) {
+        point.y = max_pos.y;
+        v.y = v.y * -damping;
+    }
+
+    if (point.z < min_pos.z) {
+        point.z = min_pos.z;
+        v.z = v.z * -damping;
+    }
+    if (point.z > max_pos.z) {
+        point.z = max_pos.z;
+        v.z = v.z * -damping;
     }
 }

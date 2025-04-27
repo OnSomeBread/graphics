@@ -136,14 +136,14 @@ void print_marching_cubes_output(vector<V3> &coords, vector<V3> &normals,
     for (int i = 0; i < (int)coords.size(); ++i) {
         cout << coords[i].x << " " << coords[i].y << " " << coords[i].z << " "
              << normals[i].x << " " << normals[i].y << " " << normals[i].z
-             << endl;
+             << " ";
     }
 
     for (int i = 0; i < (int)faceList.size(); ++i) {
         for (int j = 0; j < (int)faceList[i].size(); ++j) {
             cout << faceList[i][j] << " ";
         }
-        cout << " -1" << endl;
+        cout << "-1" << " ";
     }
 }
 
