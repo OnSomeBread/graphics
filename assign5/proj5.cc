@@ -123,6 +123,65 @@ int main(int argc, char* argv[]) {
     // populate the
     MidPointFM2D(X, n, sigma, 3 - D, seed);
 
+    // vector<vector<V3>> sphere_coords;
+    // vector<vector<V3>> normals;
+
+    // int n_divisions = N;
+    // float highest_sphere = -1e30;
+    // float lowest_sphere = 1e30;
+    // for (int i = 0; i < n_divisions + 1; ++i) {
+    //     double u = (2.0 * M_PI * i) / (double)n_divisions;
+    //     vector<V3> rows;
+    //     vector<V3> rows_normals;
+    //     for (int j = 0; j < n_divisions + 1; ++j) {
+    //         double v = (M_PI * j) / (n_divisions / 2.0) - (M_PI / 2.0);
+    //         double r = 50.0 + X[i][j];
+    //         V3 p;
+    //         p.x = r * cos(v) * cos(u);
+    //         p.y = r * cos(v) * sin(u);
+    //         p.z = r * sin(v);
+
+    //         // see if its a peak or a valley
+    //         float mag = magnitude(p);
+    //         highest_sphere = max(highest_sphere, mag);
+    //         lowest_sphere = min(lowest_sphere, mag);
+    //         rows.push_back(p);
+
+    //         // haha normal time
+    //         // partial derivative with respect to u
+    //         V3 du_normal;
+    //         du_normal.x = r * cos(v) * -sin(u);
+    //         du_normal.y = r * cos(v) * cos(u);
+    //         du_normal.z = 0;
+
+    //         // partial derivative with respect to v
+    //         V3 dv_normal;
+    //         dv_normal.x = r * -sin(v) * cos(u);
+    //         dv_normal.y = r * -sin(v) * sin(u);
+    //         dv_normal.z = r * cos(v);
+
+    //         V3 normal = normalize(cross_product(dv_normal, du_normal));
+    //         rows_normals.push_back(normal);
+    //     }
+    //     sphere_coords.push_back(rows);
+    //     normals.push_back(rows_normals);
+    // }
+
+    // vector<vector<int>> sphere_faceList;
+
+    // int s = sphere_coords.size();
+    // for (int i = 0; i < s - 1; ++i) {
+    //     for (int j = 0; j < s - 1; ++j) {
+    //         int faceNum = i * s + j;
+    //         vector<int> face;
+    //         face.push_back(faceNum);
+    //         face.push_back(faceNum + s);
+    //         face.push_back(faceNum + s + 1);
+    //         face.push_back(faceNum + 1);
+    //         sphere_faceList.push_back(face);
+    //     }
+    // }
+
     // create the polyset coords
     vector<V3> coords;
     float highest = -1e30;
@@ -141,6 +200,8 @@ int main(int argc, char* argv[]) {
 
     V3 low_color = {.33, .42, .18};
     V3 high_color = {.74, .72, .42};
+    // V3 low_color = {.3, .3, .3};
+    // V3 high_color = {.5, .5, .5};
 
     // create the polyset faces
     vector<vector<int>> faceList;
@@ -161,10 +222,20 @@ int main(int argc, char* argv[]) {
     cout << "Display \"Objects\"  \"Screen\"  \"rgbdouble\"" << endl;
     cout << "Background 0.6 0.7 0.8" << endl;
     cout << "CameraUp 0 0 1" << endl;
-    cout << "CameraAt 50 50 10" << endl;
-    cout << "CameraEye 50 -50 100" << endl;
-    cout << "CameraFOV 30" << endl;
+    cout << "CameraAt 50 50 0" << endl;
+    cout << "CameraEye 50 -50 50" << endl;
+    cout << "CameraFOV 60" << endl;
     // cout << "OptionBool \"DoubleSide\" on" << endl;
+
+    // axis object
+    cout << "ObjectBegin \"Axis\"" << endl;
+    cout << "Color 1 0 0" << endl;
+    cout << "Line 0 0 0 5 0 0" << endl;
+    cout << "Color 0 1 0" << endl;
+    cout << "Line 0 0 0 0 5 0" << endl;
+    cout << "Color 0 0 1" << endl;
+    cout << "Line 0 0 0 0 0 5" << endl;
+    cout << "ObjectEnd # Axis" << endl;
 
     cout << "WorldBegin" << endl;
     cout << "AmbientLight 0.6 0.7 0.8 0.5" << endl;
@@ -173,6 +244,7 @@ int main(int argc, char* argv[]) {
     cout << "PointLight 25 25 50 1 1 0 1" << endl;
     cout << "PointLight 0 25 50 1 1 0 1" << endl;
     cout << "PointLight 25 0 50 1 1 0 1" << endl;
+    // cout << "ObjectInstance \"Axis\"" << endl;
     cout << "PolySet \"PC\" " << coords.size() << " " << faceList.size()
          << endl;
 
@@ -190,6 +262,41 @@ int main(int argc, char* argv[]) {
         cout << "-1" << endl;
     }
 
+    // cout << "Translate 50 50 0" << endl;
+
+    // int count = 0;
+    // for (int i = 0; i < (int)sphere_coords.size(); ++i) {
+    //     count += sphere_coords[i].size();
+    // }
+
+    // cout << "PolySet \"PC\" " << count << " " << sphere_faceList.size() <<
+    // endl;
+
+    // for (int i = 0; i < (int)sphere_coords.size(); ++i) {
+    //     for (int j = 0; j < (int)sphere_coords[i].size(); ++j) {
+    //         V3 color = interpolate(low_color, high_color,
+    //                                scale_t_val(magnitude(sphere_coords[i][j]),
+    //                                            lowest_sphere,
+    //                                            highest_sphere));
+    //         color = {.5, .5, .5};
+    //         cout << sphere_coords[i][j].x << " " << sphere_coords[i][j].y <<
+    //         " "
+    //              << sphere_coords[i][j].z << " ";
+
+    //         // cout << normals[i][j].x << " " << normals[i][j].y << " "
+    //         //      << normals[i][j].z << " ";
+
+    //         cout << color.x << " " << color.y << " " << color.z << endl;
+    //     }
+    // }
+
+    // for (int i = 0; i < (int)sphere_faceList.size(); ++i) {
+    //     for (int j = 0; j < (int)sphere_faceList[i].size(); ++j) {
+    //         cout << sphere_faceList[i][j] << " ";
+    //     }
+    //     cout << "-1" << endl;
+    // }
+
     cout << "WorldEnd" << endl;
 }
 
@@ -204,13 +311,33 @@ void print_vec(vector<vector<int>>& X) {
     cout << endl;
 }
 
+// vector1 X vector2
+V3 cross_product(V3 a, V3 b) {
+    V3 ans;
+    ans.x = a.y * b.z - a.z * b.y;
+    ans.y = a.z * b.x - a.x * b.z;
+    ans.z = a.x * b.y - a.y * b.x;
+    // ans.x = a.y * b.z - a.z * b.y;
+    // ans.y = -(a.x * b.z - a.z * b.x);
+    // ans.z = a.x * b.y - a.y * b.x;
+    return ans;
+}
+
+float magnitude(V3 v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+
+V3 normalize(V3 v) {
+    float mag = magnitude(v);
+    if (mag == 0) {
+        return v;
+    }
+    return v / mag;
+}
+
 // used to create a t value for interpolate ie a value between 0-1
 double scale_t_val(double value, double data_min, double data_max) {
     return (value - data_min) / (data_max - data_min);
 }
 
 V3 interpolate(V3 start, V3 end, double t) { return (end - start) * t + start; }
-
-float magnitude(V3 v) { return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
 
 // V3 calculate_color() {}

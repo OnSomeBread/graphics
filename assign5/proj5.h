@@ -90,8 +90,9 @@ struct V3 {
 };
 
 void print_vec(vector<vector<int>>& X);
-
+V3 cross_product(V3 a, V3 b);
 float magnitude(V3 v);
+V3 normalize(V3 v);
 
 V3 interpolate(V3 start, V3 end, double t);
 
