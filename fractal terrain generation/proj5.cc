@@ -14,7 +14,7 @@ double gaussian(double low = -3, double high = 3, double mu = 0,
 }
 
 // find the mid point in a triangle with small random factor
-int f3(double delta, double x0, double x1, double x2) {
+double f3(double delta, double x0, double x1, double x2) {
     return (x0 + x1 + x2) / 3.0 + delta * gaussian();
 }
 
