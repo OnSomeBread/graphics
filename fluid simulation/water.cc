@@ -39,6 +39,8 @@ int hash_function(int x, int y, int z) {
     return ((x * 73856093) xor (y * 19349663) xor (z * 83492791)) % grid_size;
 }
 
+float magnitude(V3 v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+
 // cubic smoothing function
 double smoothing(double radius, double diff) {
     if (diff < radius) {

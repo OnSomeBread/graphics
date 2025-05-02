@@ -1,10 +1,8 @@
 CXXFLAGS= -std=c++14 -O3 -Wextra -Wall -pedantic -I.
 all: water
 
-water: water.o
-	g++  ${CXXFLAGS} -o water water.o
-
-water.o: water.cc water.h
+water: 
+	g++  ${CXXFLAGS} water.cc water.h -o water
 
 clean:
 	rm -f *.o water
