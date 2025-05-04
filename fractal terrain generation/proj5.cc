@@ -6,11 +6,13 @@ double random_float(double low, double high) {
 }
 
 // gaussian distribution function
-double gaussian(double low = -3, double high = 3, double mu = 0,
-                double div = 1) {
-    double x = random_float(low, high);
-    return 1.0 / (div * sqrt(2.0 * M_PI)) *
-           exp(-.5 * pow((x - mu) / div, 2.0)) * (std::signbit(x) ? -1.0 : 1.0);
+double gaussian(int n = 4) {
+    double s = 0;
+    for(int i = 0; i < n; ++i){
+        s += rand();
+    }
+
+    return 1.0 / (float)RAND_MAX * sqrt(12.0 / (double)n) * s - sqrt(3.0 * (double)n);
 }
 
 // find the mid point in a triangle with small random factor

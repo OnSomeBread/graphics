@@ -135,15 +135,15 @@ int REDirect::rd_sqsphere(float radius, float north, float east, float zmin,
             // x = cos^n(v)cos^e(u)
             float xleft = pow(abs(cos(v)), north) * sc(cos(v));
             float xright = pow(abs(cos(u)), east) * sc(cos(u));
-            p.x = xleft * xright;
+            p.x = radius * xleft * xright;
 
             // y = cos^n(v)sin^e(u)
             float yleft = xleft;
             float yright = pow(abs(sin(u)), east) * sc(sin(u));
-            p.y = yleft * yright;
+            p.y = radius * yleft * yright;
 
             // z = sin^n(v)
-            p.z = pow(abs(sin(v)), north) * sc(sin(v));
+            p.z = radius * pow(abs(sin(v)), north) * sc(sin(v));
 
             rows.push_back(p);
 
@@ -191,7 +191,7 @@ int REDirect::rd_sqsphere(float radius, float north, float east, float zmin,
                 dv_normal.z = -1;
             }
 
-            V3 normal = normalize(cross_product(dv_normal, du_normal));
+            V3 normal = normalize(cross_product(dv_normal * radius, du_normal * radius));
 
             // if (magnitude(normal) == 0) {
             //     cout << "u:" << u << " v:" << v << endl;
@@ -263,8 +263,7 @@ int REDirect::rd_sqtorus(float radius1, float radius2, float north, float east,
 
             // y = sin(u)(R + r cos(v))
             float yleft = pow(abs(sin(u)), east) * sc(sin(u));
-            float yright =
-                radius1 + radius2 * pow(abs(cos(v)), north) * sc(cos(v));
+            float yright = xright;
             p.y = yleft * yright;
 
             // z = r sin(v)
