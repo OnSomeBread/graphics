@@ -1,7 +1,63 @@
+#define _USE_MATH_DEFINES
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <vector>
+#include <cmath>
+
+using std::vector;
+
+void create_sphere(vector<float>& verts, vector<float>& normals, vector<int>& faceList, int xpartitions, int ypartitions, float radius, float offx, float offy, float offz) {
+    for (int i = 0; i < ypartitions + 1; ++i) {
+        double u = (2.0 * M_PI * i) / (double)ypartitions;
+        for (int j = 0; j < xpartitions + 1; ++j) {
+            double v = (M_PI * j) / (xpartitions / 2.0) - (M_PI / 2.0);
+        
+            verts.push_back(radius * cos(v) * cos(u) + offx);
+            verts.push_back(radius * cos(v) * sin(u) + offy);
+            verts.push_back(radius * sin(v) + offz);
+
+            // haha normal time
+            // partial derivative with respect to u
+            float dux = radius * cos(v) * -sin(u);
+            float duy = radius * cos(v) * cos(u);
+            float duz = 0;
+
+            // partial derivative with respect to v
+            float dvx = radius * -sin(v) * cos(u);
+            float dvy = radius * -sin(v) * sin(u);
+            float dvz = radius * cos(v);
+
+            // du X dv
+            float nx = duy * dvz - duz * dvy;
+            float ny = duz * dvx - dux * dvz;
+            float nz = dux * dvy - duy * dvx;
+
+            // normalize
+            float mag = std::sqrt(nx * nx + ny * ny + nz * nz);
+            normals.push_back(nx / mag);
+            normals.push_back(ny / mag);
+            normals.push_back(nz / mag);
+        }
+    }
+
+    // create the facelist
+    for (int y = 0; y < ypartitions; ++y) {
+        for (int x = 0; x < xpartitions; ++x) {
+            int i1 = y * (xpartitions + 1) + x;
+            int i2 = (y + 1) * (xpartitions + 1) + x;
+    
+            faceList.push_back(i1);
+            faceList.push_back(i2);
+            faceList.push_back(i1 + 1);
+    
+            faceList.push_back(i1 + 1);
+            faceList.push_back(i2);
+            faceList.push_back(i2 + 1);
+        }
+    }
+}
 
 const char* vertexShaderSource = R"glsl(
     #version 330 core
@@ -23,7 +79,8 @@ const char* fragmentShaderSource = R"glsl(
         vec3 a = vec3(.5);
         vec3 b = vec3(.5);
         vec3 c = vec3(1.);
-        vec3 d = vec3(.263, .416, .557);
+        //vec3 d = vec3(.263, .416, .557);
+        vec3 d = vec3(0.30, 0.20, 0.20);
 
         return a + b*cos( 6.283185*(c*t+d) );
     }
@@ -42,10 +99,10 @@ const char* fragmentShaderSource = R"glsl(
 
             vec3 col = palette(length(uv0) + i*.4 + iTime*.4);
 
-            d = sin(d*8. + iTime)/8.;
+            d = sin(d*8. + iTime * .8)/8.;
             d = pow(.01 / abs(d), 1.2);
             
-            finalColor += col * d;
+            finalColor += (col * d) / 4.;
         }
         FragColor = vec4(finalColor, 1.0);
     }
@@ -145,6 +202,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    int frames = 0;
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
 
@@ -165,6 +223,10 @@ int main() {
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        frames++;
+
+        std::cout << (int)(frames / glfwGetTime()) << std::endl;
     }
 
     glDeleteVertexArrays(1, &VAO);
