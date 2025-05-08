@@ -346,6 +346,8 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    glEnable(GL_DEPTH_TEST);
+
     glm::vec3 cameraPos = glm::vec3(-4.0f, -15.0f, 16.0f);    
     glm::vec3 cameraTarget = glm::vec3(5.0f, 0.0f, 6.0f);
     glm::vec3 upVector = glm::vec3(0.0f, 0.0f, 1.0f);
@@ -378,7 +380,7 @@ int main() {
         processInput(window);
         
         glClearColor(0.5f, 0.6f, 0.7f, 1.0f);  
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // add gravitational forces to particles
         for (int i = 0; i < (int)particles.size(); ++i) {
