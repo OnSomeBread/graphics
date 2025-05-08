@@ -1,44 +1,58 @@
 #define _USE_MATH_DEFINES
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <string>
 
 using std::vector;
+using glm::vec3;
+using std::cout;
+using std::endl;
 
-void create_sphere(vector<float>& verts, vector<float>& normals, vector<int>& faceList, int xpartitions, int ypartitions, float radius, float offx, float offy, float offz) {
+std::string loadShaderSource(const char* filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()){
+        cout << "Failed to open shader file" << endl;
+        return "";
+    }
+        
+    
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<int>& faceList, int xpartitions, int ypartitions, float radius, float offx, float offy, float offz) {
     for (int i = 0; i < ypartitions + 1; ++i) {
         double u = (2.0 * M_PI * i) / (double)ypartitions;
         for (int j = 0; j < xpartitions + 1; ++j) {
             double v = (M_PI * j) / (xpartitions / 2.0) - (M_PI / 2.0);
         
-            verts.push_back(radius * cos(v) * cos(u) + offx);
-            verts.push_back(radius * cos(v) * sin(u) + offy);
-            verts.push_back(radius * sin(v) + offz);
+            verts.push_back(radius * vec3(cos(v) * cos(u) + offx, cos(v) * sin(u) + offy, sin(v) + offz));
 
             // haha normal time
             // partial derivative with respect to u
-            float dux = radius * cos(v) * -sin(u);
-            float duy = radius * cos(v) * cos(u);
-            float duz = 0;
+            vec3 du(cos(v) * -sin(u), cos(v) * cos(u), 0);
+            du *= radius;
 
             // partial derivative with respect to v
-            float dvx = radius * -sin(v) * cos(u);
-            float dvy = radius * -sin(v) * sin(u);
-            float dvz = radius * cos(v);
+            vec3 dv(-sin(v) * cos(u), -sin(v) * sin(u), cos(v));
+            dv *= radius;
 
             // du X dv
-            float nx = duy * dvz - duz * dvy;
-            float ny = duz * dvx - dux * dvz;
-            float nz = dux * dvy - duy * dvx;
+            float nx = du.y * dv.z - du.z * dv.y;
+            float ny = du.z * dv.x - du.x * dv.z;
+            float nz = du.x * dv.y - du.y * dv.x;
 
             // normalize
-            float mag = std::sqrt(nx * nx + ny * ny + nz * nz);
-            normals.push_back(nx / mag);
-            normals.push_back(ny / mag);
-            normals.push_back(nz / mag);
+            normals.push_back(vec3(nx, ny, nz) / std::sqrt(nx * nx + ny * ny + nz * nz));
         }
     }
 
@@ -59,55 +73,6 @@ void create_sphere(vector<float>& verts, vector<float>& normals, vector<int>& fa
     }
 }
 
-const char* vertexShaderSource = R"glsl(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    void main() {
-        gl_Position = vec4(aPos, 1.0);
-    }
-)glsl";
-
-const char* fragmentShaderSource = R"glsl(
-    #version 410 core
-
-    uniform vec2 iResolution;
-    uniform float iTime;
-
-    out vec4 FragColor;
-
-    vec3 palette(float t){
-        vec3 a = vec3(.5);
-        vec3 b = vec3(.5);
-        vec3 c = vec3(1.);
-        //vec3 d = vec3(.263, .416, .557);
-        vec3 d = vec3(0.30, 0.20, 0.20);
-
-        return a + b*cos( 6.283185*(c*t+d) );
-    }
-
-    void main() {
-        vec2 uv = gl_FragCoord.xy / iResolution.xy * 2.0 - 1.0;
-        uv.x *= iResolution.x / iResolution.y;
-
-        vec3 finalColor = vec3(0.);
-
-        vec2 uv0 = uv;
-        for(int i = 0; i < 6; ++i){
-            uv = fract(uv * 1.5) - .5;
-
-            float d = length(uv) * exp(-length(uv0));
-
-            vec3 col = palette(length(uv0) + i*.4 + iTime*.4);
-
-            d = sin(d*8. + iTime * .8)/8.;
-            d = pow(.01 / abs(d), 1.2);
-            
-            finalColor += (col * d) / 4.;
-        }
-        FragColor = vec4(finalColor, 1.0);
-    }
-)glsl";
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -121,6 +86,9 @@ int main() {
     int screen_width = 800;
     int screen_height = 600;
 
+    std::string vertexShaderStr = loadShaderSource("vertexShaderArt1.glsl");
+    std::string fragmentShaderStr = loadShaderSource("fragmentShaderArt2.glsl");
+    
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -144,6 +112,7 @@ int main() {
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    const char* vertexShaderSource = vertexShaderStr.c_str();
     glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
     glCompileShader(vertexShader);
 
@@ -156,6 +125,7 @@ int main() {
     }
 
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    const char* fragmentShaderSource = fragmentShaderStr.c_str();
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
     glCompileShader(fragmentShader);
 
@@ -205,17 +175,16 @@ int main() {
     int frames = 0;
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
-
-        // Dark background
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);  
+        
+        glClearColor(0.5f, 0.6f, 0.7f, 1.0f);  
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
 
-        GLuint resLoc = glGetUniformLocation(shaderProgram, "iResolution");
+        GLuint resLoc = glGetUniformLocation(shaderProgram, "u_resolution");
         glUniform2f(resLoc, (float)screen_width, (float)screen_height);
 
-        GLuint timeLoc = glGetUniformLocation(shaderProgram, "iTime");
+        GLuint timeLoc = glGetUniformLocation(shaderProgram, "u_time");
         glUniform1f(timeLoc, (float)glfwGetTime());
 
         glBindVertexArray(VAO);
@@ -226,7 +195,7 @@ int main() {
 
         frames++;
 
-        std::cout << (int)(frames / glfwGetTime()) << std::endl;
+        //std::cout << (int)(frames / glfwGetTime()) << std::endl;
     }
 
     glDeleteVertexArrays(1, &VAO);
