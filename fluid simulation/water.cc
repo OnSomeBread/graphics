@@ -95,16 +95,18 @@ float calc_density(vector<vec3>& particles, vec3 particle, float radius,
 }
 
 // calculate the pressure force for the particle
-vec3 pressure_force(vector<vec3>& particles, int pointidx,
-                  vector<float>& densities, float target_density, float radius,
+vec3 pressure_force(vector<vec3>& particles, vec3 currParticle,
+                  vector<float>& densities, float currDensity, float target_density, float radius,
                   float mass) {
-    vec3 pressure(0,0,0);
+    vec3 pressure(0);
 
     for (int i = 0; i < (int)particles.size(); ++i) {
         // cant use the current particle otherwise creates nans
-        if (i == pointidx) continue;
+        vec3 particle_diff = particles[i] - currParticle;
+        if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
+            continue;
+        }
 
-        vec3 particle_diff = particles[i] - particles[pointidx];
         float d = magnitude(particle_diff);
         float ds = dsmoothing(radius, d);
 
@@ -114,7 +116,7 @@ vec3 pressure_force(vector<vec3>& particles, int pointidx,
         // instead of just p0 use the average particle pressure between the
         // current particle and this particle
         float p0 = (target_density - densities[i]);
-        float p1 = (target_density - densities[pointidx]);
+        float p1 = (target_density - currDensity);
         float avgp = (p0 + p1) / 2.0;
 
         pressure += dir * avgp * mass * ds / (float)densities[i];
@@ -122,14 +124,17 @@ vec3 pressure_force(vector<vec3>& particles, int pointidx,
     return pressure;
 }
 
-vec3 viscosity_force(vector<vec3>& particles, int pointidx, vector<vec3>& velocities,
+vec3 viscosity_force(vector<vec3>& particles, vec3 currParticle, vector<vec3>& velocities, vec3 currVelocity,
                    float radius) {
-    vec3 viscosity(0,0,0);
+    vec3 viscosity(0);
     for (int i = 0; i < (int)particles.size(); ++i) {
-        if (i == pointidx) continue;
-        float d = magnitude(particles[pointidx] - particles[i]);
+        vec3 particle_diff = currParticle - particles[i];
+        if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
+            continue;
+        }
+        float d = magnitude(particle_diff);
         float s = smoothing(radius, d);
-        viscosity += (velocities[i] - velocities[pointidx]) * s;
+        viscosity += (velocities[i] - currVelocity) * s;
     }
 
     return viscosity;
@@ -140,88 +145,23 @@ float scale_t_val(float value, float data_min, float data_max) {
     return (value - data_min) / (data_max - data_min);
 }
 
-void pr(vec3 p){
-    cout << p.x << " " << p.y << " " << p.z << endl;
-}
-
-std::string loadShaderSource(const char* filepath) {
-    std::ifstream file(filepath);
-    if (!file.is_open()){
-        cout << "Failed to open shader file" << endl;
-        return "";
-    }
-        
-    
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
-}
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-}
-
-void processInput(GLFWwindow* window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-}
-
 int main() {
     int screen_width = 800;
     int screen_height = 600;
 
+    // create the window using GLFW and glad
+    GLFWwindow* window = create_window(screen_width, screen_height, "Fluid Simulation");
+
     std::string vertexShaderStr = loadShaderSource("vertexShader.glsl");
     std::string fragmentShaderStr = loadShaderSource("fragmentShader.glsl");
-    
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* window =
-        glfwCreateWindow(screen_width, screen_height, "Basic Shader", nullptr, nullptr);
-    if (!window) {
-        std::cerr << "Failed to create GLFW window\n";
-        glfwTerminate();
-        return -1;
-    }
-    glfwMakeContextCurrent(window);
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD\n";
-        return -1;
-    }
-
-    glViewport(0, 0, screen_width, screen_height);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-    int success;
-    char infoLog[512];
-    // create the vertex shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    const char* vertexShaderSource = vertexShaderStr.c_str();
-    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
-    glCompileShader(vertexShader);
-
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(vertexShader, 512, nullptr, infoLog);
-        std::cerr << "Vertex Shader Compilation Failed:\n" << infoLog << "\n";
-    }
-
-    // create the fragment shader
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    const char* fragmentShaderSource = fragmentShaderStr.c_str();
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
-    glCompileShader(fragmentShader);
-
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(fragmentShader, 512, nullptr, infoLog);
-        std::cerr << "Fragment Shader Compilation Failed:\n" << infoLog << "\n";
-    }
+    // create the two shaders
+    GLuint vertexShader = create_shader(vertexShaderStr.c_str(), GL_VERTEX_SHADER);
+    GLuint fragmentShader = create_shader(fragmentShaderStr.c_str(), GL_FRAGMENT_SHADER);
 
     // link the two shaders into a shader program
+    int success;
+    char infoLog[512];
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
@@ -231,55 +171,23 @@ int main() {
 
     if (!success) {
         glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
-        std::cerr << "Shader Program Linking Failed:\n" << infoLog << "\n";
+        std::cerr << "shader program linking failed:\n" << infoLog << "\n";
     }
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    //std::time(0)
-    std::srand(1);
+    std::srand(std::time(0));
 
     vector<vec3> particles;
     vector<vec3> velocities;
     vector<vec3> predicted_particles;
     vector<float> densities;
 
-    int rows = 8;
-    int cols = 8;
-    int planes = 8;
+    vec3 min_bound(0.);
+    vec3 max_bound(40.);
 
-    // min and max of the boundary box that the particles should be contained in
-    vec3 min_bound(0., 0., 0.);
-    vec3 max_bound(21., 21., 21.);
-    vec3 bound_size(max_bound.x - min_bound.x, max_bound.y - min_bound.y,
-                     max_bound.z - min_bound.z);
-
-    vec3 extra(0., 5., 5.);
-
-    vec3 pos = min_bound;
-    vec3 spacing((bound_size.x - extra.x) / rows,
-                  (bound_size.y - extra.y) / cols,
-                  (bound_size.z - extra.z) / planes);
-
-    // make a particle grid with some randomization in how they are placed along
-    // the grid
-    for (int i = 0; i < rows; ++i) {
-        pos.x = i * spacing.x;
-        for (int j = 0; j < cols; ++j) {
-            pos.y = j * spacing.y;
-            for (int k = 0; k < planes; ++k) {
-                pos.x += random_float(-spacing.x / 3.0, spacing.x / 3.0);
-                pos.y += random_float(-spacing.y / 3.0, spacing.y / 3.0);
-                pos.z = k * spacing.z +
-                        random_float(-spacing.z / 3.0, spacing.z / 3.0);
-                particles.push_back(pos);
-                predicted_particles.push_back(pos);
-                velocities.push_back(vec3(0, 0, 0));
-                densities.push_back(0);
-            }
-        }
-    }
+    create_particle_system(particles, predicted_particles, velocities, densities, min_bound, max_bound, 12, 12, 12);
 
     float sphere_size = .4;
     // vec3 slow_particle_color = {.1, .25, 1};
@@ -291,7 +199,7 @@ int main() {
 
     float particle_damping = .05;
     float density_radius = 1.9;
-    float target_density = 2;
+    float target_density = 2.75;
 
     // for the marching cubes algo
     // float surfacelvl = .2;
@@ -316,7 +224,7 @@ int main() {
     vector<unsigned int> faceList;
 
     // create basic sphere to be instanced
-    create_sphere(verts, normals, faceList, 8, 8, sphere_size, vec3(0));
+    create_sphere(verts, normals, faceList, 32, 32, sphere_size, vec3(0));
     
     // sphere positions
     glGenBuffers(1, &vboPos);
@@ -384,7 +292,7 @@ int main() {
 
         // add gravitational forces to particles
         for (int i = 0; i < (int)particles.size(); ++i) {
-            velocities[i].z += -g * dt;
+            velocities[i].z -= g * dt;
             predicted_particles[i] = particles[i] + velocities[i] * dt;
         }
 
@@ -396,11 +304,14 @@ int main() {
             grid[grid_idx].push_back(predicted_particles[i]);
         }
 
+        vector<vector<vec3>> nearby_particles;
+        for (int i = 0; i < (int)particles.size(); ++i) {
+            nearby_particles.push_back(get_nearest_particles(predicted_particles[i], density_radius));
+        }
+
         // create densities table for it to be used in pressure forces
         for (int i = 0; i < (int)particles.size(); ++i) {
-            vector<vec3> nearby =
-                get_nearest_particles(predicted_particles[i], density_radius);
-            densities[i] = calc_density(nearby, predicted_particles[i],
+            densities[i] = calc_density(nearby_particles[i], predicted_particles[i],
                                         density_radius, particle_mass);
         }
 
@@ -408,7 +319,7 @@ int main() {
         // tells the particle how fast it should conform to target density
         for (int i = 0; i < (int)particles.size(); ++i) {
             vec3 pressure_accel =
-                pressure_force(predicted_particles, i, densities,
+                pressure_force(nearby_particles[i], predicted_particles[i], densities, densities[i],
                                target_density, density_radius, particle_mass) *
                 pressure_multiplier / densities[i];
 
@@ -420,8 +331,8 @@ int main() {
         // the radius have similar velocities
         for (int i = 0; i < (int)particles.size(); ++i) {
             velocities[i] +=
-                viscosity_force(particles, i, velocities, density_radius) *
-                viscosity_multiplier;
+                viscosity_force(nearby_particles[i], predicted_particles[i], velocities, velocities[i], density_radius) *
+                viscosity_multiplier * dt;
         }
 
         for (int i = 0; i < (int)particles.size(); ++i) {
@@ -452,7 +363,7 @@ int main() {
 
         // draw spheres at the particle positions
         glBindBuffer(GL_ARRAY_BUFFER, particleVBO);
-        glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(glm::vec3), particles.data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(glm::vec3), particles.data(), GL_STATIC_DRAW);
 
         // make it instanced spheres
         glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
@@ -461,11 +372,8 @@ int main() {
         
         glUseProgram(shaderProgram);
 
-        GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-        GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
         glBindVertexArray(vao);
         glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles.size());
@@ -536,22 +444,25 @@ void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned i
         
             verts.push_back(radius * vec3(cv * cu, cv * su, sv) + offset);
 
-            // haha normal time
-            // partial derivative with respect to u
-            vec3 du(cv * -su, cv * cu, 0);
-            du *= radius;
+            // // haha normal time
+            // // partial derivative with respect to u
+            // vec3 du(cv * -su, cv * cu, 0);
+            // du *= radius;
 
-            // partial derivative with respect to v
-            vec3 dv(-sv * cu, -sv * su, cv);
-            dv *= radius;
+            // // partial derivative with respect to v
+            // vec3 dv(-sv * cu, -sv * su, cv);
+            // dv *= radius;
 
-            // du X dv
-            float nx = du.y * dv.z - du.z * dv.y;
-            float ny = du.z * dv.x - du.x * dv.z;
-            float nz = du.x * dv.y - du.y * dv.x;
+            // // du X dv
+            // float nx = du.y * dv.z - du.z * dv.y;
+            // float ny = du.z * dv.x - du.x * dv.z;
+            // float nz = du.x * dv.y - du.y * dv.x;
+
+            vec3 normal = normalize(radius * vec3(cv * cu, cv * su, sv));
+            normals.push_back(normal);
 
             // normalize
-            normals.push_back(vec3(nx, ny, nz) / std::sqrt(nx * nx + ny * ny + nz * nz));
+            //normals.push_back(vec3(nx, ny, nz) / std::sqrt(nx * nx + ny * ny + nz * nz));
         }
     }
 
