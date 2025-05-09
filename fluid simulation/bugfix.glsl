@@ -100,20 +100,7 @@ vec3 viscosity_force(vec3 currParticle, vec3 currVelocity, float radius) {
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i >= particles_count) return;
 
-    if(densities.length() != velocities.length() / 3){
-        return;
-    }
-
-    // add particle pressure forces
-    // tells the particle how fast it should conform to target density
-    vec3 pressure_accel = pressure_force(predicted_particles[i], densities[i], i, target_density, density_radius, particle_mass) * pressure_multiplier / densities[i];
-    velocities[i] += pressure_accel * dt;
-
-    // add viscosity force
-    // creates friction between nearby particles so that particles within
-    // the radius have similar velocities
-    // vec3 viscosity_accel = viscosity_force(predicted_particles[i], velocities[i], density_radius);
-    // velocities[i] += viscosity_accel * viscosity_multiplier * dt;
+    velocities[0] = vec3(float(densities.length()), float(velocities.length()), -1.0);
+    //velocities[0] = vec3(123.0, 456.0, 789.0);
 }

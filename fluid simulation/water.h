@@ -20,6 +20,7 @@
 
 using std::vector;
 using glm::vec3;
+using glm::vec4;
 using std::cout;
 using std::endl;
 
@@ -84,8 +85,8 @@ GLuint create_shader(const char* shaderSource, GLenum shaderType) {
 
 GLFWwindow* create_window(int screen_width, int screen_height, std::string screen_name){
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window =

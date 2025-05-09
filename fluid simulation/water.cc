@@ -111,7 +111,7 @@ vec3 pressure_force(vector<vec3>& particles, vec3 currParticle,
         float ds = dsmoothing(radius, d);
 
         // if moving in same direction pick a random one instead
-        vec3 dir = d == 0 ? random_dir() : particle_diff / d;
+        vec3 dir = std::abs(d) < 1e-6 ? random_dir() : particle_diff / d;
 
         // instead of just p0 use the average particle pressure between the
         // current particle and this particle
@@ -119,7 +119,7 @@ vec3 pressure_force(vector<vec3>& particles, vec3 currParticle,
         float p1 = (target_density - currDensity);
         float avgp = (p0 + p1) / 2.0;
 
-        pressure += dir * avgp * mass * ds / (float)densities[i];
+        pressure += dir * avgp * mass * ds;
     }
     return pressure;
 }
@@ -151,9 +151,12 @@ int main() {
 
     // create the window using GLFW and glad
     GLFWwindow* window = create_window(screen_width, screen_height, "Fluid Simulation");
+    glEnable(GL_DEBUG_OUTPUT);
+    //glDebugMessageCallback(myCallbackFunc, nullptr);
 
     std::string vertexShaderStr = loadShaderSource("vertexShader.glsl");
     std::string fragmentShaderStr = loadShaderSource("fragmentShader.glsl");
+    std::string computeShaderStr = loadShaderSource("computeShader.glsl");
 
     // create the two shaders
     GLuint vertexShader = create_shader(vertexShaderStr.c_str(), GL_VERTEX_SHADER);
@@ -177,6 +180,20 @@ int main() {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
+    GLuint computeShader = create_shader(computeShaderStr.c_str(), GL_COMPUTE_SHADER);
+    GLuint computeShaderProgram = glCreateProgram();
+    glAttachShader(computeShaderProgram, computeShader);
+    glLinkProgram(computeShaderProgram);
+
+    glGetProgramiv(computeShaderProgram, GL_LINK_STATUS, &success);
+
+    if (!success) {
+        glGetProgramInfoLog(computeShaderProgram, 512, nullptr, infoLog);
+        std::cerr << "compute shader program linking failed:\n" << infoLog << "\n";
+    }
+
+    glDeleteShader(computeShader);
+
     std::srand(std::time(0));
 
     vector<vec3> particles;
@@ -187,7 +204,7 @@ int main() {
     vec3 min_bound(0.);
     vec3 max_bound(40.);
 
-    create_particle_system(particles, predicted_particles, velocities, densities, min_bound, max_bound, 12, 12, 12);
+    create_particle_system(particles, predicted_particles, velocities, densities, min_bound, max_bound, 10, 10, 10);
 
     float sphere_size = .4;
     // vec3 slow_particle_color = {.1, .25, 1};
@@ -215,16 +232,17 @@ int main() {
     float pressure_multiplier = 30;
     float viscosity_multiplier = .4;
 
-    GLuint vao, vboPos, vboNorm, ebo;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
     vector<vec3> verts;
     vector<vec3> normals;
     vector<unsigned int> faceList;
 
     // create basic sphere to be instanced
     create_sphere(verts, normals, faceList, 32, 32, sphere_size, vec3(0));
+
+    // create the buffers for the shader program
+    GLuint vao, vboPos, vboNorm, ebo;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
     
     // sphere positions
     glGenBuffers(1, &vboPos);
@@ -253,6 +271,24 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    // create the particles for the compute shader program
+    // eventually predicted_particles, nearby, and densities buffers get removed and becomes shared memory instead
+    GLuint particles_buffer, predicted_particles_buffer, nearby_buffer, velocities_buffer, densities_buffer;
+    glGenBuffers(1, &particles_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, particles_buffer);
+
+    glGenBuffers(1, &velocities_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, velocities_buffer);
+
+    glGenBuffers(1, &predicted_particles_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, predicted_particles_buffer);
+
+    glGenBuffers(1, &nearby_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, nearby_buffer);
+    
+    glGenBuffers(1, &densities_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, densities_buffer);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -290,6 +326,9 @@ int main() {
         glClearColor(0.5f, 0.6f, 0.7f, 1.0f);  
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // predicted_particles, densities, nearby_particles should all be shared compute memory
+        // particles, velocities will be input, output
+
         // add gravitational forces to particles
         for (int i = 0; i < (int)particles.size(); ++i) {
             velocities[i].z -= g * dt;
@@ -315,6 +354,39 @@ int main() {
                                         density_radius, particle_mass);
         }
 
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, particles_buffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec3) * particles.size(), particles.data(), GL_STATIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, particles_buffer);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, velocities_buffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec3) * velocities.size(), velocities.data(), GL_STATIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, velocities_buffer);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, predicted_particles_buffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec3) * predicted_particles.size(), predicted_particles.data(), GL_STATIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, predicted_particles_buffer);
+
+        // glBindBuffer(GL_SHADER_STORAGE_BUFFER, nearby_buffer);
+        // glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec3) * velocities.size(), velocities.data(), GL_STATIC_DRAW);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, densities_buffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * densities.size(), densities.data(), GL_STATIC_DRAW);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, densities_buffer);
+
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        glUseProgram(computeShaderProgram);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+        glUniform1i(glGetUniformLocation(computeShaderProgram, "particles_count"), particles.size());
+        glUniform1f(glGetUniformLocation(computeShaderProgram, "target_density"), target_density);
+        glUniform1f(glGetUniformLocation(computeShaderProgram, "density_radius"), density_radius);
+        glUniform1f(glGetUniformLocation(computeShaderProgram, "particle_mass"), particle_mass);
+        glUniform1f(glGetUniformLocation(computeShaderProgram, "pressure_multiplier"), pressure_multiplier);
+        glUniform1f(glGetUniformLocation(computeShaderProgram, "viscosity_multiplier"), viscosity_multiplier);
+        glUniform1f(glGetUniformLocation(computeShaderProgram, "dt"), dt);
+
+        glDispatchCompute(particles.size(), 1, 1);
+        
         // add particle pressure forces
         // tells the particle how fast it should conform to target density
         for (int i = 0; i < (int)particles.size(); ++i) {
@@ -335,11 +407,18 @@ int main() {
                 viscosity_multiplier * dt;
         }
 
+        // only read the velocities buffer
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, velocities_buffer);
+        glm::vec3* ptr = (glm::vec3*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+
         for (int i = 0; i < (int)particles.size(); ++i) {
+            //velocities[i] = ptr[i];
             particles[i] += velocities[i] * dt;
             bounds_check(particles[i], velocities[i], particle_damping,
                          min_bound, max_bound);
         }
+
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
         
         // for (int i = 0; i < field_rows; ++i) {
         //     for (int j = 0; j < field_cols; ++j) {
@@ -396,10 +475,9 @@ int main() {
     glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &particleVBO);
     glDeleteProgram(shaderProgram);
+    glDeleteProgram(computeShaderProgram);
     glfwDestroyWindow(window);
     glfwTerminate();
-
-    return 0;
 }
 
 // changes particle pos and velocity if out of bounds
@@ -443,20 +521,6 @@ void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned i
             float sv = sin(v);
         
             verts.push_back(radius * vec3(cv * cu, cv * su, sv) + offset);
-
-            // // haha normal time
-            // // partial derivative with respect to u
-            // vec3 du(cv * -su, cv * cu, 0);
-            // du *= radius;
-
-            // // partial derivative with respect to v
-            // vec3 dv(-sv * cu, -sv * su, cv);
-            // dv *= radius;
-
-            // // du X dv
-            // float nx = du.y * dv.z - du.z * dv.y;
-            // float ny = du.z * dv.x - du.x * dv.z;
-            // float nz = du.x * dv.y - du.y * dv.x;
 
             vec3 normal = normalize(radius * vec3(cv * cu, cv * su, sv));
             normals.push_back(normal);
