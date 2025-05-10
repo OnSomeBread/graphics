@@ -58,6 +58,24 @@ float dsmoothing(float radius, float diff) {
     return 0;
 }
 
+
+// used for calculating near pressure forces
+float steeperSmoothing(float dst, float radius) {
+    if (dst < radius) {
+        float volume = (M_PI * pow(radius, 6.)) / 15.0;
+        return pow(radius - dst, 3.) * volume;
+    }
+    return 0.;
+}
+
+float DsteeperSmoothing(float dst, float radius) {
+    if (dst <= radius) {
+        float volume = (pow(radius, 6.) * M_PI) / 35.0;
+        return -pow(radius - dst, 2.) / volume;
+    }
+    return 0.;
+}
+
 // calculate the pressure force for the particle
 vec3 pressure_force(vec3 currParticle, float currDensity, uint idx, float target_density, float radius,
                   float mass) {

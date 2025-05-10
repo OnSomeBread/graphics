@@ -104,6 +104,48 @@ GLFWwindow* create_window(int screen_width, int screen_height, std::string scree
     return window;
 }
 
+GLuint create_shader_program(vector<GLuint>& shaders) {
+    int success;
+    char infoLog[512];
+    GLuint shaderProgram = glCreateProgram();
+    for(int i = 0; i < (int)shaders.size(); ++i){
+        glAttachShader(shaderProgram, shaders[i]);
+    }
+    
+    glLinkProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+        std::cerr << "shader program linking failed:\n" << infoLog << "\n";
+    }
+
+    for(int i = 0; i < (int)shaders.size(); ++i){
+        glDeleteShader(shaders[i]);
+    }
+
+    return shaderProgram;
+}
+
+GLuint create_shader_program(GLuint shader) {
+    int success;
+    char infoLog[512];
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, shader);
+    
+    glLinkProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+        std::cerr << "shader program linking failed:\n" << infoLog << "\n";
+    }
+
+    glDeleteShader(shader);
+
+    return shaderProgram;
+}
+
 void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned int>& faceList, int xpartitions, int ypartitions, float radius, vec3 offset) {
     for (int i = 0; i < ypartitions + 1; ++i) {
         double u = (2.0 * M_PI * i) / (double)ypartitions;
@@ -166,4 +208,9 @@ void create_particle_system(vector<vec4>& particles, vector<vec4>& velocities, v
             }
         }
     }
+}
+
+// used to create a t value for interpolate ie a value between 0-1
+float scale_t_val(float value, float data_min, float data_max) {
+    return (value - data_min) / (data_max - data_min);
 }
