@@ -82,18 +82,6 @@ vector<vec3> get_nearest_particles(vec3 p, float density_radius) {
     return nearby;
 }
 
-// add all of the values from the smoothing function in relation to all other
-// particles including itself to prevent density = 0
-float calc_density(vector<vec3>& particles, vec3 particle, float radius,
-                    float mass) {
-    double density = 0;
-    for (int i = 0; i < (int)particles.size(); ++i) {
-        float d = magnitude(particles[i] - particle);
-        density += mass * smoothing(radius, d);
-    }
-    return density;
-}
-
 // used to create a t value for interpolate ie a value between 0-1
 float scale_t_val(float value, float data_min, float data_max) {
     return (value - data_min) / (data_max - data_min);
@@ -112,6 +100,7 @@ int main() {
     std::string fragmentShaderStr = loadShaderSource("fragmentShader.glsl");
     std::string computeShaderStr = loadShaderSource("computeShader.glsl");
     std::string computePredictedShaderStr = loadShaderSource("computePredictedShader.glsl");
+    std::string computeDensityShaderStr = loadShaderSource("computeDensityShader.glsl");
 
     // create the two shaders
     GLuint vertexShader = create_shader(vertexShaderStr.c_str(), GL_VERTEX_SHADER);
@@ -144,10 +133,24 @@ int main() {
 
     if (!success) {
         glGetProgramInfoLog(computePredictedShaderProgram, 512, nullptr, infoLog);
-        std::cerr << "compute shader program linking failed:\n" << infoLog << "\n";
+        std::cerr << "compute predicted shader program linking failed:\n" << infoLog << "\n";
     }
 
     glDeleteShader(computePredictedShader);
+
+    GLuint computeDensityShader = create_shader(computeDensityShaderStr.c_str(), GL_COMPUTE_SHADER);
+    GLuint computeDensityShaderProgram = glCreateProgram();
+    glAttachShader(computeDensityShaderProgram, computeDensityShader);
+    glLinkProgram(computeDensityShaderProgram);
+
+    glGetProgramiv(computeDensityShaderProgram, GL_LINK_STATUS, &success);
+
+    if (!success) {
+        glGetProgramInfoLog(computeDensityShaderProgram, 512, nullptr, infoLog);
+        std::cerr << "compute density shader program linking failed:\n" << infoLog << "\n";
+    }
+
+    glDeleteShader(computeDensityShader);
 
     GLuint computeShader = create_shader(computeShaderStr.c_str(), GL_COMPUTE_SHADER);
     GLuint computeShaderProgram = glCreateProgram();
@@ -167,22 +170,20 @@ int main() {
 
     vector<vec4> particles;
     vector<vec4> velocities;
-    vector<vec4> predicted_particles;
     //vector<float> densities;
 
     vec3 min_bound(0.);
-    vec3 max_bound(40.);
+    vec3 max_bound(60.);
 
-    create_particle_system(particles, predicted_particles, velocities, min_bound, max_bound, 12, 12, 12);
+    create_particle_system(particles, velocities, min_bound, max_bound, 18, 18, 18);
 
-    float sphere_size = .4;
+    float sphere_size = .7;
     // vec3 slow_particle_color = {.1, .25, 1};
     // vec3 fast_particle_color = {.25, .55, .95};
     // float fast_v = 4;  // highest value for color
 
-    float gravity = .8;
+    float gravity = 1;
     float particle_mass = 1;
-
     float particle_damping = .05;
     float density_radius = 1.9;
     float target_density = 2.75;
@@ -200,6 +201,18 @@ int main() {
     // how fast do we want particles to be target_density
     float pressure_multiplier = 30;
     float viscosity_multiplier = .4;
+
+    // view and proj settings
+    glm::vec3 cameraPos = glm::vec3(-4.0f, -15.0f, 25.0f);    
+    glm::vec3 cameraTarget = glm::vec3(15.0f, 10.0f, 10.0f);
+    glm::vec3 upVector = glm::vec3(0.0f, 0.0f, 1.0f);
+    float fov = glm::radians(60.0f);
+    float aspectRatio = (float)screen_width / (float)screen_height;
+    float nearPlane = 0.1f;
+    float farPlane  = 500.0f;
+
+    glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
+    glm::mat4 projection = glm::perspective(fov, aspectRatio, nearPlane, farPlane);
 
     vector<vec3> verts;
     vector<vec3> normals;
@@ -256,11 +269,18 @@ int main() {
     glGenBuffers(1, &nearby_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, nearby_buffer);
 
+    glUseProgram(shaderProgram);
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
     glUseProgram(computePredictedShaderProgram);
-    glUniform1i(glGetUniformLocation(computeShaderProgram, "particles_count"), particles.size());
-    glUniform1f(glGetUniformLocation(computeShaderProgram, "density_radius"), density_radius);
-    glUniform1f(glGetUniformLocation(computeShaderProgram, "particle_mass"), particle_mass);
-    glUniform1f(glGetUniformLocation(computeShaderProgram, "gravity"), gravity);
+    glUniform1i(glGetUniformLocation(computePredictedShaderProgram, "particles_count"), particles.size());
+    glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "gravity"), gravity);
+
+    glUseProgram(computeDensityShaderProgram);
+    glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "particles_count"), particles.size());
+    glUniform1f(glGetUniformLocation(computeDensityShaderProgram, "density_radius"), density_radius);
+    glUniform1f(glGetUniformLocation(computeDensityShaderProgram, "particle_mass"), particle_mass);
 
     glUseProgram(computeShaderProgram);
     glUniform1i(glGetUniformLocation(computeShaderProgram, "particles_count"), particles.size());
@@ -275,19 +295,6 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
 
-    glm::vec3 cameraPos = glm::vec3(-4.0f, -15.0f, 16.0f);    
-    glm::vec3 cameraTarget = glm::vec3(5.0f, 0.0f, 6.0f);
-    glm::vec3 upVector = glm::vec3(0.0f, 0.0f, 1.0f);
-
-    glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
-
-    float fov = glm::radians(40.0f);
-    float aspectRatio = (float)screen_width / (float)screen_height;
-    float nearPlane = 0.1f;
-    float farPlane  = 100.0f;
-
-    glm::mat4 projection = glm::perspective(fov, aspectRatio, nearPlane, farPlane);
-
     int frames = 0;
     auto last_frame_time = std::chrono::high_resolution_clock::now();
 
@@ -296,7 +303,7 @@ int main() {
         float dt = std::chrono::duration_cast<std::chrono::microseconds>(
                         curr - last_frame_time)
                         .count() /
-                    1000000.0f;
+                    1000000.0;
 
         // this prevents massive spikes from moving the screen 
         // since it pauses also from low fps
@@ -309,33 +316,18 @@ int main() {
         glClearColor(0.5f, 0.6f, 0.7f, 1.0f);  
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // predicted_particles, densities, nearby_particles should all be shared compute memory
-        // particles, velocities will be input, output
-
-        // add gravitational forces to particles
-        for (int i = 0; i < (int)particles.size(); ++i) {
-            velocities[i].z -= gravity * dt;
-            predicted_particles[i] = particles[i] + velocities[i] * dt;
-        }
-
         // populate the particle grid
-        grid.clear();
-        for (int i = 0; i < (int)predicted_particles.size(); ++i) {
-            vec3 idx = vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z) / density_radius;
-            int grid_idx = hash_function((int)idx.x, (int)idx.y, (int)idx.z);
-            grid[grid_idx].push_back(vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z));
-        }
+        // grid.clear();
+        // for (int i = 0; i < (int)predicted_particles.size(); ++i) {
+        //     vec3 idx = vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z) / density_radius;
+        //     int grid_idx = hash_function((int)idx.x, (int)idx.y, (int)idx.z);
+        //     grid[grid_idx].push_back(vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z));
+        // }
 
-        vector<vector<vec3>> nearby_particles;
-        for (int i = 0; i < (int)particles.size(); ++i) {
-            nearby_particles.push_back(get_nearest_particles(vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z), density_radius));
-        }
-
-        // create densities table for it to be used in pressure forces
-        for (int i = 0; i < (int)particles.size(); ++i) {
-            predicted_particles[i].w = calc_density(nearby_particles[i], vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z),
-                                        density_radius, particle_mass);
-        }
+        // vector<vector<vec3>> nearby_particles;
+        // for (int i = 0; i < (int)particles.size(); ++i) {
+        //     nearby_particles.push_back(get_nearest_particles(vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z), density_radius));
+        // }
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, particles_buffer);
         glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec4) * particles.size(), particles.data(), GL_STATIC_DRAW);
@@ -346,19 +338,24 @@ int main() {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, velocities_buffer);
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, predicted_particles_buffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec4) * predicted_particles.size(), predicted_particles.data(), GL_STATIC_DRAW);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec4) * particles.size(), 0, GL_STATIC_DRAW);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, predicted_particles_buffer);
 
+        // run predicted particles compute shader
+        glUseProgram(computePredictedShaderProgram);
+        glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "dt"), dt);
+        glDispatchCompute((particles.size()-31) / 32, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        // glUseProgram(computePredictedShaderProgram);
-        // glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "dt"), dt);
+        // run density calculations compute shader
+        glUseProgram(computeDensityShaderProgram);
+        glUniform1f(glGetUniformLocation(computeDensityShaderProgram, "dt"), dt);
+        glDispatchCompute((particles.size()-31) / 32, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        // glDispatchCompute((particles.size()-31) / 32, 1, 1);
-        // glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
+        // run forces calculations compute shader
         glUseProgram(computeShaderProgram);
         glUniform1f(glGetUniformLocation(computeShaderProgram, "dt"), dt);
-
         glDispatchCompute((particles.size()-31) / 32, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
@@ -395,18 +392,14 @@ int main() {
         // marching_cubes(data, surfacelvl);
 
         // draw spheres at the particle positions
-        glBindBuffer(GL_ARRAY_BUFFER, particleVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, particles_buffer);
         glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(glm::vec4), particles.data(), GL_STATIC_DRAW);
 
-        // make it instanced spheres
         glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
         glEnableVertexAttribArray(2);
         glVertexAttribDivisor(2, 1);
         
         glUseProgram(shaderProgram);
-
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
         glBindVertexArray(vao);
         glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles.size());
@@ -433,8 +426,10 @@ int main() {
     glDeleteBuffers(1, &velocities_buffer);
     glDeleteBuffers(1, &predicted_particles_buffer);
     glDeleteBuffers(1, &nearby_buffer);
-
+ 
     glDeleteProgram(shaderProgram);
+    glDeleteProgram(computePredictedShaderProgram);
+    glDeleteProgram(computeDensityShaderProgram);
     glDeleteProgram(computeShaderProgram);
     glfwDestroyWindow(window);
     glfwTerminate();

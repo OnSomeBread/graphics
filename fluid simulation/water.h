@@ -141,7 +141,7 @@ void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned i
     }
 }
 
-void create_particle_system(vector<vec4>& particles, vector<vec4>& predicted_particles, vector<vec4>& velocities, vec3 min_bound, vec3 max_bound, int rows, int cols, int planes) {
+void create_particle_system(vector<vec4>& particles, vector<vec4>& velocities, vec3 min_bound, vec3 max_bound, int rows, int cols, int planes) {
     vec3 extra(5.);
 
     vec3 bound_size = max_bound - min_bound;
@@ -162,7 +162,6 @@ void create_particle_system(vector<vec4>& particles, vector<vec4>& predicted_par
                 pos.z = k * spacing.z +
                         random_float(-spacing.z / 3.0, spacing.z / 3.0);
                 particles.push_back(pos);
-                predicted_particles.push_back(pos);
                 velocities.push_back(vec4(0));
             }
         }

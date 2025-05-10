@@ -30,7 +30,7 @@ uniform float particle_damping;
 uniform vec3 min_bound;
 uniform vec3 max_bound;
 
-float M_PI = 3.1415926535897932;
+float M_PI = 3.14159265358979323846;
 
 float random(float idx) {
     return fract(sin(dot(idx,12.9898))*43758.5453123);
