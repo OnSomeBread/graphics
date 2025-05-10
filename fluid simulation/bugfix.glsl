@@ -3,15 +3,15 @@ layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 //layout(rgba32f, binding = 0) uniform image2D screen;
 
 layout(std430, binding=3) buffer particles_buffer {
-    vec3 particles[];
+    vec4 particles[];
 };
 
 layout(std430, binding=4) buffer velocities_buffer {
-    vec3 velocities[];
+    vec4 velocities[];
 };
 
 layout(std430, binding=5) buffer predicted_particles_buffer {
-    vec3 predicted_particles[];
+    vec4 predicted_particles[];
 };
 
 // layout(std430, binding=6){
@@ -63,8 +63,8 @@ vec3 pressure_force(vec3 currParticle, float currDensity, uint idx, float target
                   float mass) {
     dvec3 pressure = dvec3(0.,0.,0.);
 
-    for (int i = 0; i < particles.length(); ++i) {
-        vec3 particle_diff = predicted_particles[i] - currParticle;
+    for (int i = 0; i < gl_NumWorkGroups.x * gl_WorkGroupSize.x; ++i) {
+        vec3 particle_diff = predicted_particles[i].xyz - currParticle;
 
         float d = length(particle_diff);
         float ds = dsmoothing(radius, d);
@@ -85,14 +85,14 @@ vec3 pressure_force(vec3 currParticle, float currDensity, uint idx, float target
 
 vec3 viscosity_force(vec3 currParticle, vec3 currVelocity, float radius) {
     dvec3 viscosity = dvec3(0.,0.,0.);
-    for (int i = 0; i < particles.length(); ++i) {
-        vec3 particle_diff = currParticle - predicted_particles[i];
+    for (int i = 0; i < gl_NumWorkGroups.x * gl_WorkGroupSize.x; ++i) {
+        vec3 particle_diff = currParticle - predicted_particles[i].xyz;
         if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
             continue;
         }
         float d = length(particle_diff);
         float s = smoothing(radius, d);
-        viscosity += (velocities[i] - currVelocity) * s;
+        viscosity += (velocities[i].xyz - currVelocity) * s;
     }
 
     return vec3(viscosity);
@@ -101,6 +101,6 @@ vec3 viscosity_force(vec3 currParticle, vec3 currVelocity, float radius) {
 void main() {
     uint i = gl_GlobalInvocationID.x;
 
-    velocities[0] = vec3(float(densities.length()), float(velocities.length()), -1.0);
-    //velocities[0] = vec3(123.0, 456.0, 789.0);
+    velocities[0] = vec4(float(densities.length()), float(velocities.length()), -1.0, -1.0);
+    //velocities[0] = vec4(123.0, 456.0, 789.0, 1011.0);
 }

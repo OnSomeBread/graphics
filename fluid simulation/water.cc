@@ -94,52 +94,6 @@ float calc_density(vector<vec3>& particles, vec3 particle, float radius,
     return density;
 }
 
-// calculate the pressure force for the particle
-vec3 pressure_force(vector<vec3>& particles, vec3 currParticle,
-                  vector<float>& densities, float currDensity, float target_density, float radius,
-                  float mass) {
-    vec3 pressure(0);
-
-    for (int i = 0; i < (int)particles.size(); ++i) {
-        // cant use the current particle otherwise creates nans
-        vec3 particle_diff = particles[i] - currParticle;
-        if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
-            continue;
-        }
-
-        float d = magnitude(particle_diff);
-        float ds = dsmoothing(radius, d);
-
-        // if moving in same direction pick a random one instead
-        vec3 dir = std::abs(d) < 1e-6 ? random_dir() : particle_diff / d;
-
-        // instead of just p0 use the average particle pressure between the
-        // current particle and this particle
-        float p0 = (target_density - densities[i]);
-        float p1 = (target_density - currDensity);
-        float avgp = (p0 + p1) / 2.0;
-
-        pressure += dir * avgp * mass * ds;
-    }
-    return pressure;
-}
-
-vec3 viscosity_force(vector<vec3>& particles, vec3 currParticle, vector<vec3>& velocities, vec3 currVelocity,
-                   float radius) {
-    vec3 viscosity(0);
-    for (int i = 0; i < (int)particles.size(); ++i) {
-        vec3 particle_diff = currParticle - particles[i];
-        if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
-            continue;
-        }
-        float d = magnitude(particle_diff);
-        float s = smoothing(radius, d);
-        viscosity += (velocities[i] - currVelocity) * s;
-    }
-
-    return viscosity;
-}
-
 // used to create a t value for interpolate ie a value between 0-1
 float scale_t_val(float value, float data_min, float data_max) {
     return (value - data_min) / (data_max - data_min);
@@ -196,15 +150,15 @@ int main() {
 
     std::srand(std::time(0));
 
-    vector<vec3> particles;
-    vector<vec3> velocities;
-    vector<vec3> predicted_particles;
-    vector<float> densities;
+    vector<vec4> particles;
+    vector<vec4> velocities;
+    vector<vec4> predicted_particles;
+    //vector<float> densities;
 
     vec3 min_bound(0.);
     vec3 max_bound(40.);
 
-    create_particle_system(particles, predicted_particles, velocities, densities, min_bound, max_bound, 10, 10, 10);
+    create_particle_system(particles, predicted_particles, velocities, min_bound, max_bound, 12, 12, 12);
 
     float sphere_size = .4;
     // vec3 slow_particle_color = {.1, .25, 1};
@@ -237,7 +191,7 @@ int main() {
     vector<unsigned int> faceList;
 
     // create basic sphere to be instanced
-    create_sphere(verts, normals, faceList, 32, 32, sphere_size, vec3(0));
+    create_sphere(verts, normals, faceList, 16, 16, sphere_size, vec3(0));
 
     // create the buffers for the shader program
     GLuint vao, vboPos, vboNorm, ebo;
@@ -274,7 +228,7 @@ int main() {
 
     // create the particles for the compute shader program
     // eventually predicted_particles, nearby, and densities buffers get removed and becomes shared memory instead
-    GLuint particles_buffer, predicted_particles_buffer, nearby_buffer, velocities_buffer, densities_buffer;
+    GLuint particles_buffer, velocities_buffer, predicted_particles_buffer, nearby_buffer;
     glGenBuffers(1, &particles_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, particles_buffer);
 
@@ -286,9 +240,6 @@ int main() {
 
     glGenBuffers(1, &nearby_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, nearby_buffer);
-    
-    glGenBuffers(1, &densities_buffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, densities_buffer);
 
     glEnable(GL_DEPTH_TEST);
 
@@ -338,44 +289,41 @@ int main() {
         // populate the particle grid
         grid.clear();
         for (int i = 0; i < (int)predicted_particles.size(); ++i) {
-            vec3 idx = predicted_particles[i] / density_radius;
+            vec3 idx = vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z) / density_radius;
             int grid_idx = hash_function((int)idx.x, (int)idx.y, (int)idx.z);
-            grid[grid_idx].push_back(predicted_particles[i]);
+            grid[grid_idx].push_back(vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z));
         }
 
         vector<vector<vec3>> nearby_particles;
         for (int i = 0; i < (int)particles.size(); ++i) {
-            nearby_particles.push_back(get_nearest_particles(predicted_particles[i], density_radius));
+            nearby_particles.push_back(get_nearest_particles(vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z), density_radius));
         }
 
         // create densities table for it to be used in pressure forces
         for (int i = 0; i < (int)particles.size(); ++i) {
-            densities[i] = calc_density(nearby_particles[i], predicted_particles[i],
+            predicted_particles[i].w = calc_density(nearby_particles[i], vec3(predicted_particles[i].x, predicted_particles[i].y, predicted_particles[i].z),
                                         density_radius, particle_mass);
         }
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, particles_buffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec3) * particles.size(), particles.data(), GL_STATIC_DRAW);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec4) * particles.size(), particles.data(), GL_STATIC_DRAW);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, particles_buffer);
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, velocities_buffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec3) * velocities.size(), velocities.data(), GL_STATIC_DRAW);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec4) * velocities.size(), velocities.data(), GL_STATIC_DRAW);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, velocities_buffer);
 
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, predicted_particles_buffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec3) * predicted_particles.size(), predicted_particles.data(), GL_STATIC_DRAW);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec4) * predicted_particles.size(), predicted_particles.data(), GL_STATIC_DRAW);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, predicted_particles_buffer);
 
         // glBindBuffer(GL_SHADER_STORAGE_BUFFER, nearby_buffer);
         // glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::vec3) * velocities.size(), velocities.data(), GL_STATIC_DRAW);
 
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, densities_buffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * densities.size(), densities.data(), GL_STATIC_DRAW);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, densities_buffer);
-
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        //glMemoryBarrier(GL_ALL_BARRIER_BITS);
         glUseProgram(computeShaderProgram);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        
 
         glUniform1i(glGetUniformLocation(computeShaderProgram, "particles_count"), particles.size());
         glUniform1f(glGetUniformLocation(computeShaderProgram, "target_density"), target_density);
@@ -385,37 +333,20 @@ int main() {
         glUniform1f(glGetUniformLocation(computeShaderProgram, "viscosity_multiplier"), viscosity_multiplier);
         glUniform1f(glGetUniformLocation(computeShaderProgram, "dt"), dt);
 
-        glDispatchCompute(particles.size(), 1, 1);
-        
-        // add particle pressure forces
-        // tells the particle how fast it should conform to target density
-        for (int i = 0; i < (int)particles.size(); ++i) {
-            vec3 pressure_accel =
-                pressure_force(nearby_particles[i], predicted_particles[i], densities, densities[i],
-                               target_density, density_radius, particle_mass) *
-                pressure_multiplier / densities[i];
+        glUniform1f(glGetUniformLocation(computeShaderProgram, "particle_damping"), particle_damping);
+        glUniform3fv(glGetUniformLocation(computeShaderProgram, "min_bound"), 1, glm::value_ptr(min_bound));
+        glUniform3fv(glGetUniformLocation(computeShaderProgram, "max_bound"), 1, glm::value_ptr(max_bound));
 
-            velocities[i] += pressure_accel * dt;
-        }
+        glDispatchCompute((particles.size()-31) / 32, 1, 1);
 
-        // add viscosity force
-        // creates friction between nearby particles so that particles within
-        // the radius have similar velocities
-        for (int i = 0; i < (int)particles.size(); ++i) {
-            velocities[i] +=
-                viscosity_force(nearby_particles[i], predicted_particles[i], velocities, velocities[i], density_radius) *
-                viscosity_multiplier * dt;
-        }
-
-        // only read the velocities buffer
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, particles_buffer);
+        glm::vec4* ptr1 = (glm::vec4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, velocities_buffer);
-        glm::vec3* ptr = (glm::vec3*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+        glm::vec4* ptr2 = (glm::vec4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
 
         for (int i = 0; i < (int)particles.size(); ++i) {
-            //velocities[i] = ptr[i];
-            particles[i] += velocities[i] * dt;
-            bounds_check(particles[i], velocities[i], particle_damping,
-                         min_bound, max_bound);
+            particles[i] = ptr1[i];
+            velocities[i] = ptr2[i];
         }
 
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
@@ -442,10 +373,10 @@ int main() {
 
         // draw spheres at the particle positions
         glBindBuffer(GL_ARRAY_BUFFER, particleVBO);
-        glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(glm::vec3), particles.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, particles.size() * sizeof(glm::vec4), particles.data(), GL_STATIC_DRAW);
 
         // make it instanced spheres
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
         glEnableVertexAttribArray(2);
         glVertexAttribDivisor(2, 1);
         
@@ -474,75 +405,14 @@ int main() {
     glDeleteBuffers(1, &vboNorm);
     glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &particleVBO);
+
+    glDeleteBuffers(1, &particles_buffer);
+    glDeleteBuffers(1, &velocities_buffer);
+    glDeleteBuffers(1, &predicted_particles_buffer);
+    glDeleteBuffers(1, &nearby_buffer);
+
     glDeleteProgram(shaderProgram);
     glDeleteProgram(computeShaderProgram);
     glfwDestroyWindow(window);
     glfwTerminate();
-}
-
-// changes particle pos and velocity if out of bounds
-void bounds_check(vec3& point, vec3& v, float damping, vec3 min_pos, vec3 max_pos) {
-    if (point.x < min_pos.x) {
-        point.x = min_pos.x;
-        v.x *= -damping;
-    }
-    if (point.x > max_pos.x) {
-        point.x = max_pos.x;
-        v.x *= -damping;
-    }
-
-    if (point.y < min_pos.y) {
-        point.y = min_pos.y;
-        v.y *= -damping;
-    }
-    if (point.y > max_pos.y) {
-        point.y = max_pos.y;
-        v.y *= -damping;
-    }
-
-    if (point.z < min_pos.z) {
-        point.z = min_pos.z;
-        v.z *= -damping;
-    }
-    if (point.z > max_pos.z) {
-        point.z = max_pos.z;
-        v.z *= -damping;
-    }
-}
-
-void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned int>& faceList, int xpartitions, int ypartitions, float radius, vec3 offset) {
-    for (int i = 0; i < ypartitions + 1; ++i) {
-        double u = (2.0 * M_PI * i) / (double)ypartitions;
-        for (int j = 0; j < xpartitions + 1; ++j) {
-            double v = (M_PI * j) / (xpartitions / 2.0) - (M_PI / 2.0);
-            float cu = cos(u);
-            float su = sin(u);
-            float cv = cos(v);
-            float sv = sin(v);
-        
-            verts.push_back(radius * vec3(cv * cu, cv * su, sv) + offset);
-
-            vec3 normal = normalize(radius * vec3(cv * cu, cv * su, sv));
-            normals.push_back(normal);
-
-            // normalize
-            //normals.push_back(vec3(nx, ny, nz) / std::sqrt(nx * nx + ny * ny + nz * nz));
-        }
-    }
-
-    // create the facelist
-    for (int i = 0; i < ypartitions; ++i) {
-        for (int j = 0; j < xpartitions; ++j) {
-            int i1 = i * (xpartitions + 1) + j;
-            int i2 = (i + 1) * (xpartitions + 1) + j;
-    
-            faceList.push_back(i1);
-            faceList.push_back(i2);
-            faceList.push_back(i1 + 1);
-    
-            faceList.push_back(i1 + 1);
-            faceList.push_back(i2);
-            faceList.push_back(i2 + 1);
-        }
-    }
 }
