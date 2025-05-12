@@ -2,6 +2,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
 #include <vector>
@@ -181,11 +183,13 @@ int main() {
 
         glUseProgram(shaderProgram);
 
-        GLuint resLoc = glGetUniformLocation(shaderProgram, "u_resolution");
-        glUniform2f(resLoc, (float)screen_width, (float)screen_height);
+        glUniform2f(glGetUniformLocation(shaderProgram, "u_resolution"), (float)screen_width, (float)screen_height);
 
-        GLuint timeLoc = glGetUniformLocation(shaderProgram, "u_time");
-        glUniform1f(timeLoc, (float)glfwGetTime());
+        glUniform1f(glGetUniformLocation(shaderProgram, "u_time"), (float)glfwGetTime());
+
+        glm::dvec2 mouse;
+        glfwGetCursorPos(window, &mouse.x, &mouse.y);
+        glUniform2dv(glGetUniformLocation(shaderProgram, "u_mouse"), 1, glm::value_ptr(mouse));
 
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
