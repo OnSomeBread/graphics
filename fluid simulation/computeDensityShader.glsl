@@ -34,15 +34,6 @@ float smoothing(float radius, float diff) {
     return 0;
 }
 
-// derivative of the smoothing function
-float dsmoothing(float radius, float diff) {
-    if (diff < radius) {
-        float volume = (64. * M_PI * pow(radius, 9.)) / 315.0;
-        return -6. * pow(radius * radius - diff * diff, 2.) * diff / volume;
-    }
-    return 0;
-}
-
 // add all of the values from the smoothing function in relation to all other
 // particles including itself to prevent density = 0
 float calc_density(vec3 particle) {

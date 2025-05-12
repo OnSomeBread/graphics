@@ -23,5 +23,9 @@ void main() {
 
     // add gravitational forces to particles
     velocities[i].z -= gravity * dt;
-    predicted_particles[i] = particles[i] + velocities[i] * dt;
+    
+    //predicted_particles[i] = particles[i] + velocities[i] * dt;
+    // use a constant look ahead factor since for whatever reason it makes
+    // particles less jiggly at higher fps
+    predicted_particles[i] = particles[i] + velocities[i] * (1./120.);
 }

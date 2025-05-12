@@ -37,7 +37,12 @@ layout(std430, binding=13) buffer faceidx_buffer {
     uint faceIdx[];
 };
 
+layout(binding = 2) uniform atomic_uint triangleCounter;
+
 uniform float surfacelvl;
+uniform int field_rows;
+uniform int field_cols;
+uniform int field_planes;
 
 // get the idx of the 3d space
 int getIdx(int i, int j, int k) {
@@ -69,29 +74,29 @@ vec3 get_gradient(int i, int j, int k) {
     int index = i + j + k;
 
     vec3 v;
-    v.x = (data[getIdx(min(i + 1, nx - 1), j, k)] - data[getIdx(max(i - 1, 0), j, k)]) / h1;
-    v.y = (data[getidx(i, min(j + 1, ny - 1), k)] - data[getIdx(i, max(j - 1, 0), k)]) / h2;
-    v.z = (data[getidx(i, j, min(k + 1, nz - 1))] - data[getIdx(i, j, max(k - 1, 0))]) / h3;
+    v.x = (field_data[getIdx(min(i + 1, nx - 1), j, k)] - field_data[getIdx(max(i - 1, 0), j, k)]) / h1;
+    v.y = (field_data[getIdx(i, min(j + 1, ny - 1), k)] - field_data[getIdx(i, max(j - 1, 0), k)]) / h2;
+    v.z = (field_data[getIdx(i, j, min(k + 1, nz - 1))] - field_data[getIdx(i, j, max(k - 1, 0))]) / h3;
 
     return v;
-}
-
-// based on what vertex points are above the surfacelvl will return the related
-// table index
-int get_cubeIdx(vector<pair<vec3, float>> &cube) {
-    int cubeIdx = 0;
-    for (int i = 0; i < 8; ++i) {
-        if (cube[i].second < surfacelvl) {
-            cubeIdx |= (1 << i);
-        }
-    }
-    return cubeIdx;
 }
 
 struct Cube {
     vec3 position;
     float value;
 };
+
+// based on what vertex points are above the surfacelvl will return the related
+// table index
+int get_cubeIdx(in Cube cube[8]) {
+    int cubeIdx = 0;
+    for (int i = 0; i < 8; ++i) {
+        if (cube[i].value < surfacelvl) {
+            cubeIdx |= (1 << i);
+        }
+    }
+    return cubeIdx;
+}
 
 // create a cube consisting of 8 vec3s
 void create_cube(int r, int c, int p, out Cube cube[8]) {
@@ -108,56 +113,54 @@ void create_cube(int r, int c, int p, out Cube cube[8]) {
 
     for (int i = 0; i < 8; ++i) {
         float val = field_data[getIdx(precube[i].x, precube[i].y, precube[i].z)];
-        cube[i] = CubeVertex(pos, val);
+        cube[i] = Cube(vec3(precube[i].x, precube[i].y, precube[i].z), val);
     }
 }
 
 // get all of the edges that intersect with current cube
 // since there are 12 edges there can only be at most 12 new vec3s
-void get_vec3_coords(in Cube cube[8], int cubeIdx) {
-    vector<pair<vec3, vec3>> vec3s(12);
-    int edgeKey = verts_to_edges_table[cubeIdx];
+void get_vec3_coords(in Cube cube[8], int cubeIdx, out vec3 tricoords[12], out vec3 trinormals[12]) {
+    int edgeKey = edgeTable[cubeIdx];
     int idx = 0;
-    while (edgeKey) {
+    while (edgeKey > 0) {
         // if the first bit is 1
-        if (edgeKey & 1) {
+        if ((edgeKey & 1) != 0) {
             // interpolate v1 and v2 at the surface level to get v3
-            vec3 v1 = cube[edges[idx][0]].first;
-            vec3 v2 = cube[edges[idx][1]].first;
-            float t = (surfacelvl - cube[edges[idx][0]].second) /
-                      (cube[edges[idx][1]].second - cube[edges[idx][0]].second);
+            vec3 v1 = cube[edges[idx * 2]].position;
+            vec3 v2 = cube[edges[idx * 2 + 1]].position;
+            float t = (surfacelvl - cube[edges[idx * 2]].value) /
+                      (cube[edges[idx * 2 + 1]].value - cube[edges[idx * 2]].value);
 
-            vec3 g1 = get_gradient(v1.x, v1.y, v1.z);
-            vec3 g2 = get_gradient(v2.x, v2.y, v2.z);
-
-            vec3s[idx] = {mix(v2, v1, t), mix(g2, g1, t)};
+            vec3 g1 = get_gradient(int(v1.x), int(v1.y), int(v1.z));
+            vec3 g2 = get_gradient(int(v2.x), int(v2.y), int(v2.z));
+            tricoords[idx] = mix(v2, v1, t);
+            trinormals[idx] = mix(g2, g1, t);
         }
         ++idx;
         edgeKey >>= 1;
     }
-    return vec3s;
 }
 
 // using all of the interpolated vec3s from the get_new_vec3_coords func
 // go through the triangulation table in sets of 3 and add them as a triangle to
 // the triangles vec
-void get_triangles(vector<vector<pair<vec3, vec3>>> &triangles, in Cube cube[8]) {
-    int cubeIdx = get_cubeIdx(cube, surfacelvl);
-    vector<pair<vec3, vec3>> vec3s = get_vec3_coords(cube, cubeIdx, surfacelvl);
+void get_triangles(in Cube cube[8]) {
+    int cubeIdx = get_cubeIdx(cube);
+    vec3 tricoords[12];
+    vec3 trinormals[12];
+    get_vec3_coords(cube, cubeIdx, tricoords, trinormals);
 
-    for (int i = 0; i < (int)triangulationTable[cubeIdx].size(); i += 3) {
-        vector<pair<vec3, vec3>> triangle;
+    for (int i = 0; i < 16 && triTable[cubeIdx * 16 + i] != -1; i += 3) {
+        for (int j = 0; j < 3; ++j) {
+            int edgeIdx = triTable[cubeIdx * 16 + i];
+            vec3 position = tricoords[edgeIdx];
+            vec3 normal = trinormals[edgeIdx];
 
-        // get each of the interpolated coords from vec3s in sets of 3 that
-        // make a triangle for the current cubeIdx
-        triangle.push_back({vec3s[triangulationTable[cubeIdx][i]].first,
-                            vec3s[triangulationTable[cubeIdx][i]].second});
-        triangle.push_back({vec3s[triangulationTable[cubeIdx][i + 1]].first,
-                            vec3s[triangulationTable[cubeIdx][i + 1]].second});
-        triangle.push_back({vec3s[triangulationTable[cubeIdx][i + 2]].first,
-                            vec3s[triangulationTable[cubeIdx][i + 2]].second});
-
-        triangles.push_back(triangle);
+            uint idx = atomicCounterIncrement(triangleCounter);
+            coords[idx] = vec4(position, 1.0);
+            normals[idx] = vec4(normalize(normal), 0.0);
+            faceIdx[idx] = idx;
+        }
     }
 }
 
