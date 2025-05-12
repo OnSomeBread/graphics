@@ -1,7 +1,7 @@
 #version 460 core
 layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
-layout(std430, binding=3) buffer particles_buffer {
+layout(std430, binding=3) readonly buffer particles_buffer {
     vec4 particles[];
 };
 
@@ -9,7 +9,7 @@ layout(std430, binding=4) buffer velocities_buffer {
     vec4 velocities[];
 };
 
-layout(std430, binding=5) buffer predicted_particles_buffer {
+layout(std430, binding=5) writeonly buffer predicted_particles_buffer {
     vec4 predicted_particles[];
 };
 

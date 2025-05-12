@@ -1,6 +1,6 @@
 #version 460 core
 
-layout(std430, binding=7) buffer field_data_buffer {
+layout(std430, binding=7) readonly buffer field_data_buffer {
     float field_data[];
 };
 
@@ -11,6 +11,8 @@ uniform int field_rows;
 uniform int field_cols;
 uniform int field_planes;
 uniform vec2 u_resolution;
+uniform vec3 min_bound;
+uniform vec3 max_bound;
 
 uniform vec3 lightPos = vec3(-5., -5., 10);
 uniform vec3 lightColor = vec3(1.0, 1.0, 1.0);
@@ -55,57 +57,49 @@ float trilinear_sample(vec3 world_pos) {
 //     //vec2 uv = (gl_FragCoord.xy * 2. - u_resolution.xy) / u_resolution.y;
 //     vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
 
-//     // vec3 ro = vec3(5., -5., 5.);
-//     //vec3 ro = vec3(15.,0.,0.);
-//     //vec3 rd = normalize(vec3(uv * 3., 1.)).xzy;
-//     vec3 ro = vec3(uv.x * 40.0, 0.0, uv.y * 40.0);
+//     // vec3 ro = vec3(uv.x * 40.0, 0.0, uv.y * 40.0); // bottom of volume
+//     // vec3 rd = vec3(0.0, 1.0, 0.0); // ray goes up
+//     vec3 ro = vec3(uv.x * 40.0 + 40.0, 0.0, uv.y * 40.0 + 40.0); // center it in the volume
 //     vec3 rd = vec3(0.0, 1.0, 0.0);
 
-//     vec3 col = vec3(0.);
+//     // vec3 ro = vec3(5.,1.,1.);
+//     // vec3 rd = normalize(vec3(uv * 2., 1.)).xzy;
 
-//     float t = 0.;
-//     float stepSize = .05;
-//     float total_density = 0;
-//     for(int i = 0; i < 80; ++i){
+//     float t = 0.0;
+//     float stepSize = 1.;
+//     float total_density = 0.0;
+
+//     for(int i = 0; i < 160; ++i){ // 160 steps for 80 units at 0.5 step
 //         vec3 p = ro + rd * t;
+//         if (any(lessThan(p, min_bound)) || any(greaterThanEqual(p, max_bound))) break;
 
-//         float d = calc_density(p);
+//         //float d = field_data[getIdx(ivec3(int(p.x), int(p.y), int(p.z)))];
+//         float d = trilinear_sample(p);
 //         total_density += d * stepSize;
 //         t += stepSize;
-
-//         // close enough or too far away
-//         //if(d < .001 || t > 500.) break;
-//         if(t > 500.) break;
 //     }
 
-//     //FragColor = vec4(vec3(total_density / 10.), 1.0);
-//     float brightness = clamp(total_density / 5.0, 0.0, 1.0);
-//     FragColor = vec4(vec3(brightness), 1.0);
+//     FragColor = vec4(vec3(total_density / 5.0), 1.0);
 // }
-
-
 
 void main(){
     vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
 
-    // vec3 ro = vec3(uv.x * 40.0, 0.0, uv.y * 40.0); // bottom of volume
-    // vec3 rd = vec3(0.0, 1.0, 0.0); // ray goes up
-
-    vec3 ro = vec3(15.,0.,1.);
-    vec3 rd = normalize(vec3(uv * 2., 1.)).xzy;
+    vec3 ro = vec3(uv.x * 40.0 + 40.0, 0.0, uv.y * 40.0 + 40.0); // center it in the volume
+    vec3 rd = vec3(0.0, 1.0, 0.0);
 
     float t = 0.0;
-    float stepSize = 1.;
+    float stepSize = .01;
     float total_density = 0.0;
 
-    for(int i = 0; i < 160; ++i){ // 160 steps for 80 units at 0.5 step
+    for (int i = 0; i < 160; ++i) {
         vec3 p = ro + rd * t;
-        if (any(lessThan(p, vec3(0.0))) || any(greaterThan(p, vec3(80.0)))) break;
+        if (any(lessThan(p, min_bound)) || any(greaterThanEqual(p, max_bound))) break;
 
-        float d = field_data[getIdx(ivec3(int(p.x), int(p.y), int(p.z)))];//trilinear_sample(p);
+        float d = trilinear_sample(p);
         total_density += d * stepSize;
         t += stepSize;
     }
 
-    FragColor = vec4(vec3(total_density / 5.0), 1.0);
+    FragColor = vec4(vec3(total_density / 1.0), 1.0);
 }

@@ -196,11 +196,11 @@ int main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, nearby_buffer);
 
     GLuint field_data_buffer, triTable_buffer, edges_buffer, edgeTable_buffer, coords_buffer, normals_buffer, faceidx_buffer, triangle_counter_buffer;
-    // marching cubes input
     glGenBuffers(1, &field_data_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, field_data_buffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * field_data_size, 0, GL_STATIC_DRAW);
 
+    // marching cubes input
     glGenBuffers(1, &triTable_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, triTable_buffer);
     int flatTriTable[256 * 16];
@@ -294,12 +294,15 @@ int main() {
     glUniform3fv(glGetUniformLocation(computeShaderProgram, "max_bound"), 1, glm::value_ptr(max_bound));
 
     glUseProgram(fieldDataShaderProgram);
-    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_rows"), field_rows);
-    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_cols"), field_cols);
-    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_planes"), field_planes);
-    glUniform1f(glGetUniformLocation(computeShaderProgram, "field_size"), field_size);
-    glUniform1f(glGetUniformLocation(computeShaderProgram, "density_radius"), density_radius);
-    glUniform1f(glGetUniformLocation(computeShaderProgram, "particle_mass"), particle_mass);
+    glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "particles_count"), particles.size());
+    glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "field_rows"), field_rows);
+    glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "field_cols"), field_cols);
+    glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "field_planes"), field_planes);
+    glUniform1f(glGetUniformLocation(fieldDataShaderProgram, "field_size"), field_size);
+    glUniform1f(glGetUniformLocation(fieldDataShaderProgram, "density_radius"), density_radius);
+    glUniform1f(glGetUniformLocation(fieldDataShaderProgram, "particle_mass"), particle_mass);
+    glUniform3fv(glGetUniformLocation(fieldDataShaderProgram, "min_bound"), 1, glm::value_ptr(min_bound));
+    glUniform3fv(glGetUniformLocation(fieldDataShaderProgram, "max_bound"), 1, glm::value_ptr(max_bound));
 
     glUseProgram(marchingCubesShaderProgram);
     glUniform1i(glGetUniformLocation(computeShaderProgram, "field_rows"), field_rows);
@@ -308,14 +311,16 @@ int main() {
     glUniform1f(glGetUniformLocation(computeShaderProgram, "surfacelvl"), surfacelvl);
 
     glUseProgram(rayMarchingShaderProgram);
-    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_rows"), field_rows);
-    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_cols"), field_cols);
-    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_planes"), field_planes);
-    glUniform1f(glGetUniformLocation(computeShaderProgram, "field_size"), field_size);
+    glUniform1i(glGetUniformLocation(rayMarchingShaderProgram, "field_rows"), field_rows);
+    glUniform1i(glGetUniformLocation(rayMarchingShaderProgram, "field_cols"), field_cols);
+    glUniform1i(glGetUniformLocation(rayMarchingShaderProgram, "field_planes"), field_planes);
+    glUniform1f(glGetUniformLocation(rayMarchingShaderProgram, "field_size"), field_size);
+    glUniform3fv(glGetUniformLocation(rayMarchingShaderProgram, "min_bound"), 1, glm::value_ptr(min_bound));
+    glUniform3fv(glGetUniformLocation(rayMarchingShaderProgram, "max_bound"), 1, glm::value_ptr(max_bound));
     glUniform2f(glGetUniformLocation(rayMarchingShaderProgram, "u_resolution"), (float)screen_width, (float)screen_height);
 
-    glEnable(GL_DEPTH_TEST);
-    //glDisable(GL_DEPTH_TEST);
+    //glEnable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
 
     int frames = 0;
     auto last_frame_time = std::chrono::high_resolution_clock::now();
@@ -379,14 +384,14 @@ int main() {
         // marching_cubes(data, surfacelvl);
         
         // draw spheres
-        glUseProgram(shaderProgram);
-        glBindVertexArray(vao);
-        glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles.size());
+        // glUseProgram(shaderProgram);
+        // glBindVertexArray(vao);
+        // glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles.size());
 
         // draw full screen for rayMarching
-        // glUseProgram(rayMarchingShaderProgram);
-        // glBindVertexArray(rayMarchingVAO);
-        // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glUseProgram(rayMarchingShaderProgram);
+        glBindVertexArray(rayMarchingVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

@@ -1,20 +1,23 @@
 #version 460 core
 layout(local_size_x = 2, local_size_y = 2, local_size_z = 2) in;
 
-layout(std430, binding=3) buffer particles_buffer {
+layout(std430, binding=3) readonly buffer particles_buffer {
     vec4 particles[];
 };
 
-layout(std430, binding=7) buffer field_data_buffer {
+layout(std430, binding=7) writeonly buffer field_data_buffer {
     float field_data[];
 };
 
+uniform int particles_count;
 uniform float field_size;
 uniform int field_rows;
 uniform int field_cols;
 uniform int field_planes;
 uniform float density_radius;
 uniform float particle_mass;
+uniform vec3 min_bound;
+uniform vec3 max_bound;
 
 float M_PI = 3.14159265358979323846;
 
@@ -31,7 +34,7 @@ float smoothing(float radius, float diff) {
 // particles including itself to prevent density = 0
 float calc_density(vec3 particle) {
     double density = 0;
-    for (int i = 0; i < field_rows * field_cols * field_planes; ++i) {
+    for (int i = 0; i < particles_count; ++i) {
         float d = length(particles[i].xyz - particle);
         density += particle_mass * smoothing(density_radius, d);
     }
@@ -51,7 +54,7 @@ void main() {
 
     int index = i + j + k;
 
-    vec3 field_particle = vec3(float(i * field_size + field_size * .5), float(j * field_size + field_size * .5),float(k * field_size + field_size * .5));
+    vec3 field_particle = min_bound + vec3(float(x) * field_size + field_size * .5, float(y) * field_size + field_size * .5, float(z) * field_size + field_size * .5);
 
     field_data[index] = calc_density(field_particle);
 }
