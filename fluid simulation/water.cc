@@ -55,6 +55,10 @@ int main() {
 
     std::string vertexShaderStr = loadShaderSource("vertexShader.glsl");
     std::string fragmentShaderStr = loadShaderSource("fragmentShader.glsl");
+
+    std::string rayMarchingVertexShaderStr = loadShaderSource("rayMarchingVertexShader.glsl");
+    std::string rayMarchingFragmentShaderStr = loadShaderSource("rayMarchingFragmentShader.glsl");
+
     std::string computeShaderStr = loadShaderSource("computeShader.glsl");
     std::string computePredictedShaderStr = loadShaderSource("computePredictedShader.glsl");
     std::string computeDensityShaderStr = loadShaderSource("computeDensityShader.glsl");
@@ -62,62 +66,68 @@ int main() {
     std::string fieldDataShaderStr = loadShaderSource("fieldDataShader.glsl");
     std::string marchingCubesShaderStr = loadShaderSource("marchingCubes.glsl");
 
-    // create the two shaders
-    vector<GLuint> shaders;
-    shaders.push_back(create_shader(vertexShaderStr.c_str(), GL_VERTEX_SHADER));
-    shaders.push_back(create_shader(fragmentShaderStr.c_str(), GL_FRAGMENT_SHADER));
-
-    // create all of the needed shader programs
-    GLuint shaderProgram = create_shader_program(shaders);
-    GLuint computePredictedShaderProgram = create_shader_program(create_shader(computePredictedShaderStr.c_str(), GL_COMPUTE_SHADER));
-    GLuint computeDensityShaderProgram = create_shader_program(create_shader(computeDensityShaderStr.c_str(), GL_COMPUTE_SHADER));
-    GLuint computeShaderProgram = create_shader_program(create_shader(computeShaderStr.c_str(), GL_COMPUTE_SHADER));
-
-    GLuint fieldDataShaderProgram = create_shader_program(create_shader(fieldDataShaderStr.c_str(), GL_COMPUTE_SHADER));
-    GLuint marchingCubesShaderProgram = create_shader_program(create_shader(marchingCubesShaderStr.c_str(), GL_COMPUTE_SHADER));
-
     std::srand(std::time(0));
 
     vector<vec4> particles;
     vector<vec4> velocities;
 
     vec3 min_bound(0.);
-    vec3 max_bound(100.);
+    vec3 max_bound(80.);
 
-    create_particle_system(particles, velocities, min_bound, max_bound, 21, 21, 21);
+    create_particle_system(particles, velocities, min_bound, max_bound, 16, 16, 16);
 
-    float sphere_size = .7;
-    float gravity = 1;
+    float sphere_size = .5;
+    float gravity = 9.8;
     float particle_mass = 1;
     float particle_damping = .05;
     float density_radius = 1.9;
-    float target_density = 2.75;
-    float pressure_multiplier = 30;
-    float viscosity_multiplier = .4;
+    float target_density = 2.50;
+    float pressure_multiplier = 250;
+    float viscosity_multiplier = .08;
 
-    // for the marching cubes algo
     vec3 bound_size = max_bound - min_bound;
     float surfacelvl = .2;
     float field_size = 2;
     int field_rows = ceil(bound_size.x / field_size) + 1;
     int field_cols = ceil(bound_size.y / field_size) + 1;
     int field_planes = ceil(bound_size.z / field_size) + 1;
-    int field_data_size =  (field_rows - 1) * (field_cols - 1) * (field_planes - 1);
+    int field_data_size = field_rows * field_cols * field_planes;
+
     // vector<vector<vector<float>>> data(
     //     field_rows,
     //     vector<vector<float>>(field_cols, vector<float>(field_planes, 0)));
 
     // view and proj settings
-    vec3 cameraPos = vec3(-4.0f, -15.0f, 25.0f);    
-    vec3 cameraTarget = vec3(15.0f, 10.0f, 10.0f);
+    vec3 cameraPos = vec3(15.0f, -25.0f, 25.0f);    
+    vec3 cameraTarget = vec3(25.0f, 10.0f, 10.0f);
     vec3 upVector = vec3(0.0f, 0.0f, 1.0f);
-    float fov = glm::radians(60.0f);
+    float fov = glm::radians(55.0f);
     float aspectRatio = (float)screen_width / (float)screen_height;
     float nearPlane = 0.1f;
     float farPlane  = 500.0f;
 
     glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
     glm::mat4 projection = glm::perspective(fov, aspectRatio, nearPlane, farPlane);
+
+    // create the two shaders
+    vector<GLuint> shaders;
+    shaders.push_back(create_shader(vertexShaderStr.c_str(), GL_VERTEX_SHADER));
+    shaders.push_back(create_shader(fragmentShaderStr.c_str(), GL_FRAGMENT_SHADER));
+
+    // create raymarching shaders
+    vector<GLuint> rayMarchingShaders;
+    rayMarchingShaders.push_back(create_shader(rayMarchingVertexShaderStr.c_str(), GL_VERTEX_SHADER));
+    rayMarchingShaders.push_back(create_shader(rayMarchingFragmentShaderStr.c_str(), GL_FRAGMENT_SHADER));
+
+    // create all of the needed shader programs
+    GLuint shaderProgram = create_shader_program(shaders);
+    GLuint rayMarchingShaderProgram = create_shader_program(rayMarchingShaders);
+    GLuint computePredictedShaderProgram = create_shader_program(create_shader(computePredictedShaderStr.c_str(), GL_COMPUTE_SHADER));
+    GLuint computeDensityShaderProgram = create_shader_program(create_shader(computeDensityShaderStr.c_str(), GL_COMPUTE_SHADER));
+    GLuint computeShaderProgram = create_shader_program(create_shader(computeShaderStr.c_str(), GL_COMPUTE_SHADER));
+
+    GLuint fieldDataShaderProgram = create_shader_program(create_shader(fieldDataShaderStr.c_str(), GL_COMPUTE_SHADER));
+    GLuint marchingCubesShaderProgram = create_shader_program(create_shader(marchingCubesShaderStr.c_str(), GL_COMPUTE_SHADER));
 
     vector<vec3> verts;
     vector<vec3> normals;
@@ -185,7 +195,7 @@ int main() {
     glGenBuffers(1, &nearby_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, nearby_buffer);
 
-    GLuint field_data_buffer, triTable_buffer, edges_buffer, edgeTable_buffer, coords_buffer, normals_buffer, faceidx_buffer;
+    GLuint field_data_buffer, triTable_buffer, edges_buffer, edgeTable_buffer, coords_buffer, normals_buffer, faceidx_buffer, triangle_counter_buffer;
     // marching cubes input
     glGenBuffers(1, &field_data_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, field_data_buffer);
@@ -231,6 +241,33 @@ int main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 13, faceidx_buffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::uint) * field_data_size * 15, 0, GL_STATIC_DRAW);
 
+    // used to get faceIdx
+    glGenBuffers(1, &triangle_counter_buffer);
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, triangle_counter_buffer);
+    glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(GLuint), nullptr, GL_STATIC_DRAW);
+    glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 2, triangle_counter_buffer);
+
+    float full_screen_vertices[] = {-1.0f, -1.0f, 0.0f,  
+                        1.0f, -1.0f, 0.0f, 
+                        -1.0f, 1.0f, 0.0f,
+                        1.0f, 1.0f, 0.0f
+                        };
+
+    GLuint rayMarchingVBO, rayMarchingVAO;
+    glGenVertexArrays(1, &rayMarchingVAO);
+    glGenBuffers(1, &rayMarchingVBO);
+
+    glBindVertexArray(rayMarchingVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, rayMarchingVBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(full_screen_vertices), full_screen_vertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
+                          (void*)0);
+    glEnableVertexAttribArray(4);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
     // setup constant uniforms for each of the shader program
     glUseProgram(shaderProgram);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
@@ -264,21 +301,35 @@ int main() {
     glUniform1f(glGetUniformLocation(computeShaderProgram, "density_radius"), density_radius);
     glUniform1f(glGetUniformLocation(computeShaderProgram, "particle_mass"), particle_mass);
 
+    glUseProgram(marchingCubesShaderProgram);
+    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_rows"), field_rows);
+    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_cols"), field_cols);
+    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_planes"), field_planes);
+    glUniform1f(glGetUniformLocation(computeShaderProgram, "surfacelvl"), surfacelvl);
+
+    glUseProgram(rayMarchingShaderProgram);
+    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_rows"), field_rows);
+    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_cols"), field_cols);
+    glUniform1i(glGetUniformLocation(computeShaderProgram, "field_planes"), field_planes);
+    glUniform1f(glGetUniformLocation(computeShaderProgram, "field_size"), field_size);
+    glUniform2f(glGetUniformLocation(rayMarchingShaderProgram, "u_resolution"), (float)screen_width, (float)screen_height);
+
     glEnable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
 
     int frames = 0;
     auto last_frame_time = std::chrono::high_resolution_clock::now();
 
     while (!glfwWindowShouldClose(window)) {
         auto curr = std::chrono::high_resolution_clock::now();
-        float dt = std::chrono::duration_cast<std::chrono::microseconds>(
+        double dt = std::chrono::duration_cast<std::chrono::microseconds>(
                         curr - last_frame_time)
                         .count() /
                     1000000.0;
 
         // this prevents massive spikes from moving the screen 
         // since it pauses also from low fps
-        dt = std::min(dt, .1f);
+        dt = std::min(dt, .1);
 
         last_frame_time = curr;
 
@@ -303,19 +354,19 @@ int main() {
         // run predicted particles compute shader
         glUseProgram(computePredictedShaderProgram);
         glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "dt"), dt);
-        glDispatchCompute(particles.size() / 32, 1, 1);
+        glDispatchCompute(particles.size() / 32 + 1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
         // run density calculations compute shader
         glUseProgram(computeDensityShaderProgram);
         glUniform1f(glGetUniformLocation(computeDensityShaderProgram, "dt"), dt);
-        glDispatchCompute(particles.size() / 32, 1, 1);
+        glDispatchCompute(particles.size() / 32 + 1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
         // run forces calculations compute shader
         glUseProgram(computeShaderProgram);
         glUniform1f(glGetUniformLocation(computeShaderProgram, "dt"), dt);
-        glDispatchCompute(particles.size() / 32, 1, 1);
+        glDispatchCompute(particles.size() / 32 + 1, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
         // create the density field for the marching cubes algorithm
@@ -327,10 +378,15 @@ int main() {
 
         // marching_cubes(data, surfacelvl);
         
+        // draw spheres
         glUseProgram(shaderProgram);
-
         glBindVertexArray(vao);
         glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles.size());
+
+        // draw full screen for rayMarching
+        // glUseProgram(rayMarchingShaderProgram);
+        // glBindVertexArray(rayMarchingVAO);
+        // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

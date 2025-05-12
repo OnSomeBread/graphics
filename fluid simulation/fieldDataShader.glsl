@@ -5,10 +5,6 @@ layout(std430, binding=3) buffer particles_buffer {
     vec4 particles[];
 };
 
-// layout(std430, binding=6){
-//     vec3 nearby[];
-// }
-
 layout(std430, binding=7) buffer field_data_buffer {
     float field_data[];
 };
@@ -27,15 +23,6 @@ float smoothing(float radius, float diff) {
     if (diff < radius) {
         float volume = (64. * M_PI * pow(radius, 9.)) / 315.0;
         return pow(radius * radius - diff * diff, 3.) / volume;
-    }
-    return 0.;
-}
-
-// derivative of the smoothing function
-float dsmoothing(float radius, float diff) {
-    if (diff < radius) {
-        float volume = (64. * M_PI * pow(radius, 9.)) / 315.0;
-        return -6. * pow(radius * radius - diff * diff, 2.) * diff / volume;
     }
     return 0.;
 }
