@@ -82,24 +82,65 @@ float trilinear_sample(vec3 world_pos) {
 //     FragColor = vec4(vec3(total_density / 5.0), 1.0);
 // }
 
-void main(){
+// void main(){
+//     vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
+
+//     vec3 ro = vec3(uv.x * 40.0 + 40.0, 0.0, uv.y * 40.0 + 40.0);
+//     vec3 rd = vec3(0.0, 1.0, 0.0);
+
+//     float t = 0.0;
+//     float stepSize = .01;
+//     float total_density = 0.0;
+
+//     for (int i = 0; i < 160; ++i) {
+//         vec3 p = ro + rd * t;
+//         if (any(lessThan(p, min_bound)) || any(greaterThanEqual(p, max_bound))) break;
+
+//         float d = trilinear_sample(p);
+//         total_density += d * stepSize;
+//         t += stepSize;
+//     }
+
+//     FragColor = vec4(vec3(total_density / 1.0), 1.0);
+// }
+
+
+void main() {
     vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
 
-    vec3 ro = vec3(uv.x * 40.0 + 40.0, 0.0, uv.y * 40.0 + 40.0); // center it in the volume
-    vec3 rd = vec3(0.0, 1.0, 0.0);
+    vec3 ro = vec3(40.0, -40.0, 20.0);
+    // ray points to +p
+    vec3 rd = normalize(vec3(uv * 1.0, 1.0)).xzy;
 
-    float t = 0.0;
-    float stepSize = .01;
+    vec3 inv_rd = 1.0 / rd;
+
+    vec3 t0 = (min_bound - ro) * inv_rd;
+    vec3 t1 = (max_bound - ro) * inv_rd;
+
+    vec3 tmin3 = min(t0, t1);
+    vec3 tmax3 = max(t0, t1);
+
+    float t_enter = max(max(tmin3.x, tmin3.y), tmin3.z);
+    float t_exit = min(min(tmax3.x, tmax3.y), tmax3.z);
+
+    // Early exit if ray misses box
+    if (t_exit < 0.0 || t_enter > t_exit) {
+        FragColor = vec4(0.0);
+        return;
+    }
+
+    float t = max(t_enter, 0.0);
+    float stepSize = 1.0;
     float total_density = 0.0;
 
-    for (int i = 0; i < 160; ++i) {
-        vec3 p = ro + rd * t;
-        if (any(lessThan(p, min_bound)) || any(greaterThanEqual(p, max_bound))) break;
+    for (int i = 0; i < 200; ++i) {
+        if (t > t_exit) break;
 
+        vec3 p = ro + rd * t;
         float d = trilinear_sample(p);
         total_density += d * stepSize;
         t += stepSize;
     }
 
-    FragColor = vec4(vec3(total_density / 1.0), 1.0);
+    FragColor = vec4(vec3(total_density * 0.5), 1.0);
 }

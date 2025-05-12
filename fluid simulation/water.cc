@@ -87,7 +87,7 @@ int main() {
 
     vec3 bound_size = max_bound - min_bound;
     float surfacelvl = .2;
-    float field_size = 2;
+    float field_size = 1;
     int field_rows = ceil(bound_size.x / field_size) + 1;
     int field_cols = ceil(bound_size.y / field_size) + 1;
     int field_planes = ceil(bound_size.z / field_size) + 1;
@@ -376,7 +376,7 @@ int main() {
 
         // create the density field for the marching cubes algorithm
         glUseProgram(fieldDataShaderProgram);
-        glDispatchCompute(field_rows / 2, field_cols / 2, field_planes / 2);
+        glDispatchCompute(field_rows / 3, field_cols / 3, field_planes / 3);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
         // glUseProgram(marchingCubesShaderProgram);
