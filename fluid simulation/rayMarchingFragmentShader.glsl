@@ -53,57 +53,18 @@ float trilinear_sample(vec3 world_pos) {
     return mix(c0, c1, f.z);
 }
 
-// void main(){
-//     //vec2 uv = (gl_FragCoord.xy * 2. - u_resolution.xy) / u_resolution.y;
-//     vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
+float refraction(vec3 inRay, vec3 normal, float airRefraction, float waterRefraction) {
+    float refractRatio = airRefraction / waterRefraction;
+    float cosIn = -dot(inRay, normal);
+    float sinSqrRefract = refractRatio * refractRatio * (1 - cosIn * cosIn);
+    if(sinSqrRefract >= 1) return 1;
 
-//     // vec3 ro = vec3(uv.x * 40.0, 0.0, uv.y * 40.0); // bottom of volume
-//     // vec3 rd = vec3(0.0, 1.0, 0.0); // ray goes up
-//     vec3 ro = vec3(uv.x * 40.0 + 40.0, 0.0, uv.y * 40.0 + 40.0); // center it in the volume
-//     vec3 rd = vec3(0.0, 1.0, 0.0);
+    float cosRefract = sqrt(1 - sinSqrRefract);
+    float sqrtRayPerp = (airRefraction * cosIn - waterRefraction * cosRefract) / (airRefraction * cosIn + waterRefraction * cosRefract);
+    float sqrtRayParallel = (waterRefraction * cosIn - airRefraction * cosRefract) / (waterRefraction * cosIn + airRefraction * cosRefract);
 
-//     // vec3 ro = vec3(5.,1.,1.);
-//     // vec3 rd = normalize(vec3(uv * 2., 1.)).xzy;
-
-//     float t = 0.0;
-//     float stepSize = 1.;
-//     float total_density = 0.0;
-
-//     for(int i = 0; i < 160; ++i){ // 160 steps for 80 units at 0.5 step
-//         vec3 p = ro + rd * t;
-//         if (any(lessThan(p, min_bound)) || any(greaterThanEqual(p, max_bound))) break;
-
-//         //float d = field_data[getIdx(ivec3(int(p.x), int(p.y), int(p.z)))];
-//         float d = trilinear_sample(p);
-//         total_density += d * stepSize;
-//         t += stepSize;
-//     }
-
-//     FragColor = vec4(vec3(total_density / 5.0), 1.0);
-// }
-
-// void main(){
-//     vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
-
-//     vec3 ro = vec3(uv.x * 40.0 + 40.0, 0.0, uv.y * 40.0 + 40.0);
-//     vec3 rd = vec3(0.0, 1.0, 0.0);
-
-//     float t = 0.0;
-//     float stepSize = .01;
-//     float total_density = 0.0;
-
-//     for (int i = 0; i < 160; ++i) {
-//         vec3 p = ro + rd * t;
-//         if (any(lessThan(p, min_bound)) || any(greaterThanEqual(p, max_bound))) break;
-
-//         float d = trilinear_sample(p);
-//         total_density += d * stepSize;
-//         t += stepSize;
-//     }
-
-//     FragColor = vec4(vec3(total_density / 1.0), 1.0);
-// }
-
+    return (sqrtRayPerp * sqrtRayPerp + sqrtRayParallel * sqrtRayParallel) / 2.; 
+}
 
 void main() {
     vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
@@ -123,24 +84,41 @@ void main() {
     float t_enter = max(max(tmin3.x, tmin3.y), tmin3.z);
     float t_exit = min(min(tmax3.x, tmax3.y), tmax3.z);
 
-    // Early exit if ray misses box
+    // early exit if ray misses box
     if (t_exit < 0.0 || t_enter > t_exit) {
         FragColor = vec4(0.0);
         return;
     }
 
     float t = max(t_enter, 0.0);
-    float stepSize = 1.0;
+    float stepSize = 0.8;
     float total_density = 0.0;
+    vec3 total_light = vec3(0.);
 
-    for (int i = 0; i < 200; ++i) {
+    vec3 scatteringCoefficients = vec3(0.2588, 0.6039, 0.7412);
+    float speedVacuum = 299792458;
+    float speedLight = 299702547;
+    float speedWater = 225000000;
+
+    float airRefraction = speedVacuum / speedLight;
+    float waterRefraction = speedVacuum / speedWater;
+
+    for (int i = 0; i < 200. / stepSize; ++i) {
         if (t > t_exit) break;
 
         vec3 p = ro + rd * t;
-        float d = trilinear_sample(p);
-        total_density += d * stepSize;
+        float d = trilinear_sample(p) * stepSize;
+
+        total_density += d;
+
+        //float sunRayColor = 
+
+        vec3 scatteredLight = vec3(1.) * d * scatteringCoefficients;
+        vec3 rayTransmittance = exp(-d * scatteringCoefficients);
+        total_light += scatteredLight * rayTransmittance;
         t += stepSize;
     }
 
-    FragColor = vec4(vec3(total_density * 0.5), 1.0);
+    FragColor = vec4(total_light, 1.0);
+    //FragColor = vec4(vec3(total_density * 0.5), 1.0);
 }

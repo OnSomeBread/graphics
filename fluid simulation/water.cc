@@ -8,14 +8,12 @@ using std::unordered_map;
 using std::vector;
 
 // PROBLEMS
-// STARTING POS IS AGGRESSIVE
 // EDGES HAVE GAPS
 // CLUMPS FORM
-// IMPLEMENT MARCHING CUBES
 // ADD NEAR DENSITY AND NEAR PRESSURE FORCES
 // https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf
 
-// massive optimization to allow for more particles
+// massive optimization to allow for more particles however not gpu friendly
 // split the bounding box into grid squares of size density_radius
 // then when calculating densities or pressure forces only consider the
 // 3x3 grid of cells since the rest of the particles will add 0 anyway
@@ -84,16 +82,11 @@ int main() {
     float viscosity_multiplier = .08;
 
     vec3 bound_size = max_bound - min_bound;
-    float surfacelvl = .2;
-    float field_size = 1;
+    float field_size = 1.2;
     int field_rows = ceil(bound_size.x / field_size) + 1;
     int field_cols = ceil(bound_size.y / field_size) + 1;
     int field_planes = ceil(bound_size.z / field_size) + 1;
     int field_data_size = field_rows * field_cols * field_planes;
-
-    // vector<vector<vector<float>>> data(
-    //     field_rows,
-    //     vector<vector<float>>(field_cols, vector<float>(field_planes, 0)));
 
     // view and proj settings
     vec3 cameraPos = vec3(15.0f, -25.0f, 25.0f);    
@@ -318,7 +311,7 @@ int main() {
 
         // create the density field for the marching cubes algorithm
         glUseProgram(fieldDataShaderProgram);
-        glDispatchCompute(field_rows / 3, field_cols / 3, field_planes / 3);
+        glDispatchCompute(field_rows / 4, field_cols / 4, field_planes / 4);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
         
         // draw spheres

@@ -1,5 +1,5 @@
 #version 460 core
-layout(local_size_x = 3, local_size_y = 3, local_size_z = 3) in;
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
 layout(std430, binding=3) readonly buffer particles_buffer {
     vec4 particles[];
