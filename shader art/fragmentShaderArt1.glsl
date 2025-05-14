@@ -34,9 +34,9 @@ void main() {
     //vec3 col = palette(length(uv));
     //vec3 col = palette(sdHeart(uv));
     vec3 c1 = vec3(0.,1.,0.);
-    vec3 c2 = vec3(0.1686, 0.5216, 0.6863);
+    vec3 c2 = vec3(0.1725, 0.7529, 0.098);
     float d = fract(sdHeart(uv) - u_time / 2.);
-    vec3 col = vec3(smoothstep(.1, .3, d));
+    vec3 col = 1. - vec3(smoothstep(.1, .3, d)) * c2;
     vec3 finalColor = abs(sin(col));
 
     gl_FragColor = vec4(col, 1.0);
