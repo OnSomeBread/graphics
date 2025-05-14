@@ -86,6 +86,8 @@ GLFWwindow* create_window(int screen_width, int screen_height, std::string scree
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+
 
     GLFWwindow* window =
         glfwCreateWindow(screen_width, screen_height, screen_name.c_str(), nullptr, nullptr);

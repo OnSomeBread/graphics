@@ -5,7 +5,7 @@ layout(std430, binding=3) readonly buffer particles_buffer {
     vec4 particles[];
 };
 
-layout(std430, binding=7) writeonly buffer field_data_buffer {
+layout(std430, binding=6) writeonly buffer field_data_buffer {
     float field_data[];
 };
 

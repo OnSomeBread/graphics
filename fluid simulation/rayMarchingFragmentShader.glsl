@@ -1,6 +1,6 @@
 #version 460 core
 
-layout(std430, binding=7) readonly buffer field_data_buffer {
+layout(std430, binding=6) readonly buffer field_data_buffer {
     float field_data[];
 };
 
@@ -13,6 +13,7 @@ uniform int field_planes;
 uniform vec2 u_resolution;
 uniform vec3 min_bound;
 uniform vec3 max_bound;
+uniform vec2 u_mouse;
 
 uniform vec3 lightPos = vec3(-5., -5., 10);
 uniform vec3 lightColor = vec3(1.0, 1.0, 1.0);
@@ -66,12 +67,26 @@ float refraction(vec3 inRay, vec3 normal, float airRefraction, float waterRefrac
     return (sqrtRayPerp * sqrtRayPerp + sqrtRayParallel * sqrtRayParallel) / 2.; 
 }
 
+mat2 rot2D(float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return mat2(c, -s, s, c);
+}
+
 void main() {
     vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
+    vec2 m = (u_mouse * 2. - u_resolution.xy) / u_resolution.y;
 
     vec3 ro = vec3(40.0, -40.0, 20.0);
     // ray points to +p
     vec3 rd = normalize(vec3(uv * 1.0, 1.0)).xzy;
+
+    // verticle rotation happens before the horizontal
+    // ro.yz *= rot2D(-m.y);
+    // rd.yz *= rot2D(-m.y);
+
+    // ro.xz *= rot2D(-m.x);
+    // rd.xz *= rot2D(-m.x);
 
     vec3 inv_rd = 1.0 / rd;
 
