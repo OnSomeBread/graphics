@@ -33,6 +33,7 @@ uniform float target_density;
 uniform float density_radius;
 uniform float particle_mass;
 uniform float pressure_multiplier;
+uniform float near_pressure_multiplier = 5;
 uniform float viscosity_multiplier;
 uniform float dt;
 
@@ -90,7 +91,7 @@ int hash_function(ivec3 p) {
     return ((p.x * 73856093) + (p.y * 19349663) + (p.z * 83492791)) % particles_count;
 }
 
-vec3 pressure_force_from_nearest_particles(vec4 particle, uint currIdx) {
+vec3 pressure_force(vec4 particle) {
     dvec3 pressure = dvec3(0.,0.,0.);
     ivec3 base = ivec3(particle.xyz / density_radius);
 
@@ -114,16 +115,20 @@ vec3 pressure_force_from_nearest_particles(vec4 particle, uint currIdx) {
                     float d = length(particle_diff);
                     float ds = dsmoothing(density_radius, d);
 
+                    // near density smoothing
+                    float nds = steeperSmoothing(density_radius, d) * near_pressure_multiplier;
+
                     // if moving in same direction pick a random one instead
-                    vec3 dir = d == 0 ? random_dir(float(currIdx + particle_idx)) : particle_diff / d;
+                    vec3 dir = d == 0 ? random_dir(float(gl_GlobalInvocationID.x + particle_idx)) : particle_diff / d;
 
                     // instead of just p0 use the average particle pressure between the
                     // current particle and this particle
-                    float p0 = (target_density - predicted_particles[particle_idx].w);
-                    float p1 = (target_density - particle.w);
+                    float p0 = target_density - predicted_particles[particle_idx].w;
+                    float p1 = target_density - particle.w;
                     float avgp = (p0 + p1) / 2.0;
 
                     pressure += dir * avgp * ds;
+                    //pressure += dir * avgp * nds * .01;
                 }
             }
         }
@@ -132,34 +137,7 @@ vec3 pressure_force_from_nearest_particles(vec4 particle, uint currIdx) {
     return vec3(pressure) * particle_mass;
 }
 
-// calculate the pressure force for the particle used for reference
-// vec3 pressure_force(vec4 particle, uint idx) {
-//     dvec3 pressure = dvec3(0.,0.,0.);
-
-//     for (int i = 0; i < gl_NumWorkGroups.x * gl_WorkGroupSize.x; ++i) {
-//         vec3 particle_diff = predicted_particles[i].xyz - particle.xyz;
-//         if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
-//             continue;
-//         }
-
-//         float d = length(particle_diff);
-//         float ds = dsmoothing(density_radius, d);
-
-//         // if moving in same direction pick a random one instead
-//         vec3 dir = d == 0 ? random_dir(float(idx + i)) : particle_diff / d;
-
-//         // instead of just p0 use the average particle pressure between the
-//         // current particle and this particle
-//         float p0 = (target_density - predicted_particles[i].w);
-//         float p1 = (target_density - particle.w);
-//         float avgp = (p0 + p1) / 2.0;
-
-//         pressure += dir * avgp * ds;
-//     }
-//     return vec3(pressure) * particle_mass;
-// }
-
-vec3 viscosity_force_from_nearest_particles(vec3 particle, vec3 velocity) {
+vec3 viscosity_force(vec3 particle, vec3 velocity) {
     dvec3 viscosity = dvec3(0.,0.,0.);
     ivec3 base = ivec3(particle / density_radius);
 
@@ -190,35 +168,19 @@ vec3 viscosity_force_from_nearest_particles(vec3 particle, vec3 velocity) {
     return vec3(viscosity);
 }
 
-// calculate viscosity_force for the particle used as reference
-// vec3 viscosity_force(vec3 particle, vec3 velocity) {
-//     dvec3 viscosity = dvec3(0.,0.,0.);
-//     for (int i = 0; i < gl_NumWorkGroups.x * gl_WorkGroupSize.x; ++i) {
-//         vec3 particle_diff = particle - predicted_particles[i].xyz;
-//         if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
-//             continue;
-//         }
-//         float d = length(particle_diff);
-//         float s = smoothing(density_radius, d);
-//         viscosity += (velocities[i].xyz - velocity) * s;
-//     }
-
-//     return vec3(viscosity);
-// }
-
 void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= particles_count) return;
 
     // add particle pressure forces
     // tells the particle how fast it should conform to target density
-    vec3 pressure_accel = pressure_force_from_nearest_particles(predicted_particles[i], i) * pressure_multiplier / predicted_particles[i].w;
+    vec3 pressure_accel = pressure_force(predicted_particles[i]) * pressure_multiplier / predicted_particles[i].w;
     velocities[i] += vec4(pressure_accel * dt, 0.);
 
     // add viscosity force
     // creates friction between nearby particles so that particles within
     // the radius have similar velocities
-    vec3 viscosity_accel = viscosity_force_from_nearest_particles(predicted_particles[i].xyz, velocities[i].xyz);
+    vec3 viscosity_accel = viscosity_force(predicted_particles[i].xyz, velocities[i].xyz);
     velocities[i] += vec4(viscosity_accel * viscosity_multiplier * dt, 0.);
 
     particles[i] += velocities[i] * dt;

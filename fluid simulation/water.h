@@ -24,6 +24,13 @@ using glm::vec4;
 using std::cout;
 using std::endl;
 
+using std::max;
+using std::pow;
+using std::round;
+using std::sqrt;
+using std::unordered_map;
+using std::string;
+
 vec3 interpolate(vec3 start, vec3 end, float t) { return (end - start) * t + start; }
 
 void bounds_check(vec4& point, vec4& v, float damping, vec3 min_pos, vec3 max_pos);

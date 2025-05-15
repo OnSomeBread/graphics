@@ -1,17 +1,9 @@
 #include "water.h"
 
-using std::max;
-using std::pow;
-using std::round;
-using std::sqrt;
-using std::unordered_map;
-using std::vector;
-
 // PROBLEMS
 // EDGES HAVE GAPS
 // CLUMPS FORM
 // ADD NEAR DENSITY AND NEAR PRESSURE FORCES
-// DELETE PREDICTED PARTICLES ONLY HAVE PARTICLES AND VELOCITIES GO STRAIGHT TO NEARBY 
 // https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf
 
 int main() {
@@ -22,20 +14,21 @@ int main() {
     GLFWwindow* window = create_window(screen_width, screen_height, "Fluid Simulation");
     glEnable(GL_DEBUG_OUTPUT);
 
-    std::string vertexShaderStr = loadShaderSource("vertexShader.glsl");
-    std::string fragmentShaderStr = loadShaderSource("fragmentShader.glsl");
+    // vertex and fragment shader for 2 different shader programs
+    string vertexShaderStr = loadShaderSource("vertexShader.glsl");
+    string fragmentShaderStr = loadShaderSource("fragmentShader.glsl");
+    string rayMarchingVertexShaderStr = loadShaderSource("rayMarchingVertexShader.glsl");
+    string rayMarchingFragmentShaderStr = loadShaderSource("rayMarchingFragmentShader.glsl");
 
-    std::string rayMarchingVertexShaderStr = loadShaderSource("rayMarchingVertexShader.glsl");
-    std::string rayMarchingFragmentShaderStr = loadShaderSource("rayMarchingFragmentShader.glsl");
-
-    std::string computeShaderStr = loadShaderSource("computeShader.glsl");
-    std::string computePredictedShaderStr = loadShaderSource("computePredictedShader.glsl");
-    std::string computeDensityShaderStr = loadShaderSource("computeDensityShader.glsl");
-    std::string computeClearNearbyShaderStr = loadShaderSource("computeClearNearbyShader.glsl");
-    std::string computeNearbyShaderStr = loadShaderSource("computeNearbyShader.glsl");
-    std::string computeNearbySortShaderStr = loadShaderSource("computeNearbySortShader.glsl");
-    std::string computeNearbyIdxShaderStr = loadShaderSource("computeNearbyIdxShader.glsl");
-    std::string fieldDataShaderStr = loadShaderSource("fieldDataShader.glsl");
+    // compute shaders
+    string computeShaderStr = loadShaderSource("computeShader.glsl");
+    string computePredictedShaderStr = loadShaderSource("computePredictedShader.glsl");
+    string computeDensityShaderStr = loadShaderSource("computeDensityShader.glsl");
+    string computeClearNearbyShaderStr = loadShaderSource("computeClearNearbyShader.glsl");
+    string computeNearbyShaderStr = loadShaderSource("computeNearbyShader.glsl");
+    string computeNearbySortShaderStr = loadShaderSource("computeNearbySortShader.glsl");
+    string computeNearbyIdxShaderStr = loadShaderSource("computeNearbyIdxShader.glsl");
+    string fieldDataShaderStr = loadShaderSource("fieldDataShader.glsl");
 
     // create the two shaders
     vector<GLuint> shaders;
@@ -66,16 +59,16 @@ int main() {
 
     // particle system settings
     vec3 min_bound(0.);
-    vec3 max_bound(150.);
+    vec3 max_bound(200., 200., 150.);
     vec3 bound_size = max_bound - min_bound;
-    const float sphere_size = .5;
+    const float sphere_size = .6;
     const float gravity = 9.8;
     const float particle_mass = 1;
     const float particle_damping = .05;
     const float density_radius = 1.9;
-    const float target_density = 2.50;
-    const float pressure_multiplier = 250;
-    const float viscosity_multiplier = .08;
+    const float target_density = 2.75;
+    const float pressure_multiplier = 275;
+    const float viscosity_multiplier = .12;
 
     // particle_count must be power of 2 for the parallel sort -- must fix
     create_particle_system(particles, velocities, min_bound, max_bound, 32, 32, 32);
@@ -100,12 +93,14 @@ int main() {
     glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
     glm::mat4 projection = glm::perspective(fovy, aspectRatio, nearPlane, farPlane);
 
+    const int dispatch_size = particles_count / 32;
+
     vector<vec3> verts;
     vector<vec3> normals;
     vector<unsigned int> faceList;
 
     // create basic sphere to be instanced
-    create_sphere(verts, normals, faceList, 8, 8, sphere_size, vec3(0));
+    create_sphere(verts, normals, faceList, 16, 16, sphere_size, vec3(0));
 
     // create the buffers for the shader program
     GLuint vao, vboPos, vboNorm, ebo;
@@ -262,7 +257,7 @@ int main() {
 
     int frames = 0;
     auto last_frame_time = std::chrono::high_resolution_clock::now();
-    const int dispatch_size = particles_count / 32;
+    double last_fps_print_time = 0.;
 
     while (!glfwWindowShouldClose(window)) {
         auto curr = std::chrono::high_resolution_clock::now();
@@ -358,11 +353,10 @@ int main() {
 
         frames++;
 
-        //std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-        // TODO change to execute every second instead
-        if(frames % 10 == 0) {
-            std::cout << (int)(frames / glfwGetTime()) << std::endl;
+        double currTime = glfwGetTime();
+        if(currTime - last_fps_print_time > .5) {
+            cout << (int)(frames / currTime) << endl;
+            last_fps_print_time = currTime;
         }
     }
 

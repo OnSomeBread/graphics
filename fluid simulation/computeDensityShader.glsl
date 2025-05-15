@@ -41,7 +41,7 @@ int hash_function(ivec3 p) {
     return ((p.x * 73856093) + (p.y * 19349663) + (p.z * 83492791)) % particles_count;
 }
 
-float density_from_nearest_particles(vec3 particle) {
+float calc_density(vec3 particle) {
     double density = 0.;
     ivec3 base = ivec3(particle / density_radius);
 
@@ -81,5 +81,5 @@ void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= particles_count) return;
 
-    predicted_particles[i].w = density_from_nearest_particles(predicted_particles[i].xyz);
+    predicted_particles[i].w = calc_density(predicted_particles[i].xyz);
 }
