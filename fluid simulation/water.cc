@@ -31,7 +31,10 @@ int main() {
     std::string computeShaderStr = loadShaderSource("computeShader.glsl");
     std::string computePredictedShaderStr = loadShaderSource("computePredictedShader.glsl");
     std::string computeDensityShaderStr = loadShaderSource("computeDensityShader.glsl");
+    std::string computeClearNearbyShaderStr = loadShaderSource("computeClearNearbyShader.glsl");
     std::string computeNearbyShaderStr = loadShaderSource("computeNearbyShader.glsl");
+    std::string computeNearbySortShaderStr = loadShaderSource("computeNearbySortShader.glsl");
+    std::string computeNearbyIdxShaderStr = loadShaderSource("computeNearbyIdxShader.glsl");
     std::string fieldDataShaderStr = loadShaderSource("fieldDataShader.glsl");
 
     // create the two shaders
@@ -50,7 +53,10 @@ int main() {
     GLuint computePredictedShaderProgram = create_shader_program(create_shader(computePredictedShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeDensityShaderProgram = create_shader_program(create_shader(computeDensityShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeShaderProgram = create_shader_program(create_shader(computeShaderStr.c_str(), GL_COMPUTE_SHADER));
+    GLuint computeClearNearbyShaderProgram = create_shader_program(create_shader(computeClearNearbyShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeNearbyShaderProgram = create_shader_program(create_shader(computeNearbyShaderStr.c_str(), GL_COMPUTE_SHADER));
+    GLuint computeNearbySortShaderProgram = create_shader_program(create_shader(computeNearbySortShaderStr.c_str(), GL_COMPUTE_SHADER));
+    GLuint computeNearbyIdxShaderProgram = create_shader_program(create_shader(computeNearbyIdxShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint fieldDataShaderProgram = create_shader_program(create_shader(fieldDataShaderStr.c_str(), GL_COMPUTE_SHADER));
     
     std::srand(std::time(0));
@@ -60,7 +66,7 @@ int main() {
 
     // particle system settings
     vec3 min_bound(0.);
-    vec3 max_bound(100.);
+    vec3 max_bound(150.);
     vec3 bound_size = max_bound - min_bound;
     const float sphere_size = .5;
     const float gravity = 9.8;
@@ -70,14 +76,10 @@ int main() {
     const float target_density = 2.50;
     const float pressure_multiplier = 250;
     const float viscosity_multiplier = .08;
-    create_particle_system(particles, velocities, min_bound, max_bound, 21, 21, 21);
 
-    // spatial look up table settings
-    const int per_bucket = 50;
-    const int bucket_rows = ceil(bound_size.x / density_radius);
-    const int bucket_cols = ceil(bound_size.y / density_radius);
-    const int bucket_planes = ceil(bound_size.z / density_radius);
-    const int buckets = bucket_rows * bucket_cols * bucket_planes;
+    // particle_count must be power of 2 for the parallel sort -- must fix
+    create_particle_system(particles, velocities, min_bound, max_bound, 32, 32, 32);
+    const int particles_count = particles.size();
 
     // ray marching field data settings
     const float field_size = 1.2;
@@ -87,8 +89,8 @@ int main() {
     const int field_data_size = field_rows * field_cols * field_planes;
 
     // view and proj settings
-    vec3 cameraPos = vec3(15.0f, -25.0f, 25.0f);    
-    vec3 cameraTarget = vec3(25.0f, 10.0f, 10.0f);
+    vec3 cameraPos = vec3(15.0f, -40.0f, 35.0f);    
+    vec3 cameraTarget = vec3(35.0f, 10.0f, 10.0f);
     vec3 upVector = vec3(0.0f, 0.0f, 1.0f);
     const float fovy = glm::radians(55.0f);
     const float aspectRatio = (float)screen_width / (float)screen_height;
@@ -103,7 +105,7 @@ int main() {
     vector<unsigned int> faceList;
 
     // create basic sphere to be instanced
-    create_sphere(verts, normals, faceList, 16, 16, sphere_size, vec3(0));
+    create_sphere(verts, normals, faceList, 8, 8, sphere_size, vec3(0));
 
     // create the buffers for the shader program
     GLuint vao, vboPos, vboNorm, ebo;
@@ -140,10 +142,10 @@ int main() {
 
     // create the particles for the compute shader program
     // eventually predicted_particles, nearby, and densities buffers get removed and becomes shared memory instead
-    GLuint particles_buffer, velocities_buffer, predicted_particles_buffer, field_data_buffer, nearby_buffer, nearby_counts_buffer;
+    GLuint particles_buffer, velocities_buffer, predicted_particles_buffer, field_data_buffer, nearby_buffer, nearby_idx_buffer;
     glGenBuffers(1, &particles_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, particles_buffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vec4) * particles.size(), particles.data(), GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vec4) * particles_count, particles.data(), GL_STATIC_DRAW);
 
     // draw spheres at the particle positions
     glBindVertexArray(vao);
@@ -159,21 +161,26 @@ int main() {
 
     glGenBuffers(1, &predicted_particles_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, predicted_particles_buffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vec4) * particles.size(), nullptr, GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vec4) * particles_count, nullptr, GL_STATIC_DRAW);
 
     glGenBuffers(1, &field_data_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, field_data_buffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * field_data_size, nullptr, GL_STATIC_DRAW);
 
+    struct Entry {
+        int particle_idx = INT_MAX;
+        int grid_idx = INT_MAX;
+    };
+
     glGenBuffers(1, &nearby_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, nearby_buffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(int) * buckets * per_bucket, nullptr, GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Entry) * particles_count, nullptr, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &nearby_counts_buffer);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, nearby_counts_buffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(int) * buckets, nullptr, GL_STATIC_DRAW);
+    glGenBuffers(1, &nearby_idx_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, nearby_idx_buffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(int) * particles_count, nullptr, GL_STATIC_DRAW);
     
-    float full_screen_vertices[] = {-1.0f, -1.0f, 0.0f,  
+    const float full_screen_vertices[] = {-1.0f, -1.0f, 0.0f,  
                         1.0f, -1.0f, 0.0f, 
                         -1.0f, 1.0f, 0.0f,
                         1.0f, 1.0f, 0.0f
@@ -200,33 +207,27 @@ int main() {
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
     glUseProgram(computePredictedShaderProgram);
-    glUniform1i(glGetUniformLocation(computePredictedShaderProgram, "particles_count"), particles.size());
+    glUniform1i(glGetUniformLocation(computePredictedShaderProgram, "particles_count"), particles_count);
     glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "gravity"), gravity);
 
+    glUseProgram(computeClearNearbyShaderProgram);
+    glUniform1i(glGetUniformLocation(computeClearNearbyShaderProgram, "particles_count"), particles_count);
+
     glUseProgram(computeNearbyShaderProgram);
-    glUniform1i(glGetUniformLocation(computeNearbyShaderProgram, "particles_count"), particles.size());
-    glUniform1i(glGetUniformLocation(computeNearbyShaderProgram, "bucket_rows"), bucket_rows);
-    glUniform1i(glGetUniformLocation(computeNearbyShaderProgram, "bucket_cols"), bucket_cols);
-    glUniform1i(glGetUniformLocation(computeNearbyShaderProgram, "bucket_planes"), bucket_planes);
-    glUniform1i(glGetUniformLocation(computeNearbyShaderProgram, "buckets"), buckets);
-    glUniform1i(glGetUniformLocation(computeNearbyShaderProgram, "per_bucket"), per_bucket);
+    glUniform1i(glGetUniformLocation(computeNearbyShaderProgram, "particles_count"), particles_count);
     glUniform1f(glGetUniformLocation(computeNearbyShaderProgram, "density_radius"), density_radius);
-    glUniform3fv(glGetUniformLocation(computeNearbyShaderProgram, "min_bound"), 1, glm::value_ptr(min_bound));
+
+    glUseProgram(computeNearbyIdxShaderProgram);
+    glUniform1i(glGetUniformLocation(computeNearbyIdxShaderProgram, "particles_count"), particles_count);
 
     glUseProgram(computeDensityShaderProgram);
-    glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "particles_count"), particles.size());
-    glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "bucket_rows"), bucket_rows);
-    glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "bucket_cols"), bucket_cols);
-    glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "bucket_planes"), bucket_planes);
-    glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "buckets"), buckets);
-    glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "per_bucket"), per_bucket);
+    glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "particles_count"), particles_count);
     glUniform1f(glGetUniformLocation(computeDensityShaderProgram, "density_radius"), density_radius);
     glUniform1f(glGetUniformLocation(computeDensityShaderProgram, "particle_mass"), particle_mass);
-    glUniform3fv(glGetUniformLocation(computeDensityShaderProgram, "min_bound"), 1, glm::value_ptr(min_bound));
     glUniform3fv(glGetUniformLocation(computeDensityShaderProgram, "bound_size"), 1, glm::value_ptr(bound_size));
 
     glUseProgram(computeShaderProgram);
-    glUniform1i(glGetUniformLocation(computeShaderProgram, "particles_count"), particles.size());
+    glUniform1i(glGetUniformLocation(computeShaderProgram, "particles_count"), particles_count);
     glUniform1f(glGetUniformLocation(computeShaderProgram, "target_density"), target_density);
     glUniform1f(glGetUniformLocation(computeShaderProgram, "density_radius"), density_radius);
     glUniform1f(glGetUniformLocation(computeShaderProgram, "particle_mass"), particle_mass);
@@ -237,7 +238,7 @@ int main() {
     glUniform3fv(glGetUniformLocation(computeShaderProgram, "max_bound"), 1, glm::value_ptr(max_bound));
 
     glUseProgram(fieldDataShaderProgram);
-    glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "particles_count"), particles.size());
+    glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "particles_count"), particles_count);
     glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "field_rows"), field_rows);
     glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "field_cols"), field_cols);
     glUniform1i(glGetUniformLocation(fieldDataShaderProgram, "field_planes"), field_planes);
@@ -259,11 +260,9 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     //glDisable(GL_DEPTH_TEST);
 
-    vector<int> buckets_arr(buckets * per_bucket, 0);
-    vector<int> bucket_counts_arr(buckets, 0);
-
     int frames = 0;
     auto last_frame_time = std::chrono::high_resolution_clock::now();
+    const int dispatch_size = particles_count / 32;
 
     while (!glfwWindowShouldClose(window)) {
         auto curr = std::chrono::high_resolution_clock::now();
@@ -286,94 +285,57 @@ int main() {
         // run predicted particles compute shader
         glUseProgram(computePredictedShaderProgram);
         glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "dt"), dt);
-        glDispatchCompute(particles.size() / 32 + 1, 1, 1);
+        glDispatchCompute(dispatch_size, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
         // create the spatial lookup table for this frame for all the future shaders to use
-        // glBindBuffer(GL_SHADER_STORAGE_BUFFER, nearby_buffer);
-        // glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(int) * buckets * per_bucket, nullptr, GL_STATIC_DRAW);
-        // glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32I, GL_RED_INTEGER, GL_INT, 0);
+        glUseProgram(computeClearNearbyShaderProgram);
+        glDispatchCompute(dispatch_size, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        // glBindBuffer(GL_SHADER_STORAGE_BUFFER, nearby_counts_buffer);
-        // glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(int) * buckets, nullptr, GL_STATIC_DRAW);
-        // glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32I, GL_RED_INTEGER, GL_INT, 0);
+        int clear = INT_MAX;
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, nearby_idx_buffer);
+        glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32I, GL_RED_INTEGER, GL_INT, &clear);
 
-        // glUseProgram(computeNearbyShaderProgram);
-        // glDispatchCompute(particles.size() / 32 + 1, 1, 1);
-        // glMemoryBarrier(GL_ALL_BARRIER_BITS);
+        glUseProgram(computeNearbyShaderProgram);
+        glDispatchCompute(dispatch_size, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        // glBindBuffer(GL_SHADER_STORAGE_BUFFER, nearby_buffer);
-        // int* data = (int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+        glUseProgram(computeNearbySortShaderProgram);
+        GLuint kLoc = glGetUniformLocation(computeNearbySortShaderProgram, "k");
+        GLuint jLoc = glGetUniformLocation(computeNearbySortShaderProgram, "j");
 
-        // glBindBuffer(GL_SHADER_STORAGE_BUFFER, nearby_counts_buffer);
-        // int* counts = (int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-
-        // cout << frames << endl;
-        // cout << "here" << endl;
-        // std::unordered_map<int, int> particleIdx;
-
-        // int c = 0;
-        // for (int i = 0; i < buckets; ++i) {
-        //     for (int j = 0; j < counts[i]; ++j) {
-        //         int idx = data[i * per_bucket + j];
-        //         if(particleIdx.contains(idx)){
-        //             cout << idx << endl;
-        //         }
-        //         particleIdx[idx] = i;
+        // only works in particles_count is a power of 2
+        // TODO change so that array length can be any length
+        for (int k = 2; k <= particles_count; k *= 2) {
+            for (int j = k / 2; j > 0; j /= 2) {
+                glUniform1i(kLoc, k);
+                glUniform1i(jLoc, j);
                 
-        //         //cout << idx << " ";
-        //         c++;
-        //     }
-        //     // if(counts[i] > 1){
-        //     //     cout << "Bucket " << i  << " " << counts[i] << ": ";
-        //     //     for (int j = 0; j < counts[i]; ++j) {
-        //     //         int idx = data[i * per_bucket + j];
-        //     //         cout << idx << " ";
-        //     //     }
-        //     //     std::cout << std::endl;
-        //     // }
-        // }
+                glDispatchCompute(dispatch_size, 1, 1);
+                glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            }
+        }
 
-        // cout << particles.size() << endl;
-        // cout << c << endl;
-
-        // return 1;
-
-        // glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        glUseProgram(computeNearbyIdxShaderProgram);
+        glDispatchCompute(dispatch_size, 1, 1);
+        glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
         // run density calculations compute shader
         glUseProgram(computeDensityShaderProgram);
-        glDispatchCompute(particles.size() / 32 + 1, 1, 1);
+        glDispatchCompute(dispatch_size, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-        // glBindBuffer(GL_SHADER_STORAGE_BUFFER, predicted_particles_buffer);
-        // vec4* data2 = (vec4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-
-        // cout << frames << endl;
-        // for (int i = 0; i < (int)particles.size(); ++i) {
-        //     // if(data2[i].w != 0) {
-        //     //     //continue;
-        //     //     cout << data2[i].w << endl;
-        //     // }
-        //     cout << data2[i].w << " ";
-        // }
-
-        // glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-
-        // if(frames == 2) {
-        //     return 1;
-        // }
 
         // run forces calculations compute shader
         glUseProgram(computeShaderProgram);
         glUniform1f(glGetUniformLocation(computeShaderProgram, "dt"), dt);
-        glDispatchCompute(particles.size() / 32 + 1, 1, 1);
+        glDispatchCompute(dispatch_size, 1, 1);
         glMemoryBarrier(GL_ALL_BARRIER_BITS);
         
         // draw spheres
         glUseProgram(shaderProgram);
         glBindVertexArray(vao);
-        glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles.size());
+        glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles_count);
 
         // create the density field
         // glUseProgram(fieldDataShaderProgram);

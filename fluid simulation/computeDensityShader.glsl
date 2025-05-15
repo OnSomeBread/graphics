@@ -5,21 +5,22 @@ layout(std430, binding=5) buffer predicted_particles_buffer {
     vec4 predicted_particles[];
 };
 
-layout(std430, binding=7) readonly buffer nearby_buffer {
-    int nearby[];
+struct Entry {
+    int particle_idx;
+    int grid_idx;
 };
 
-layout(std430, binding=8) readonly buffer nearby_counts_buffer {
-    int nearby_counts[];
+layout(std430, binding=7) readonly buffer nearby_buffer {
+    Entry nearby[];
 };
+
+layout(std430, binding=8) readonly buffer nearby_idx_buffer {
+    int nearby_idx[];
+};
+
+#define INT_MAX 2147483647
 
 uniform int particles_count;
-uniform int bucket_rows;
-uniform int bucket_cols;
-uniform int bucket_planes;
-uniform int per_bucket;
-uniform int buckets;
-uniform vec3 min_bound;
 uniform vec3 bound_size;
 uniform float density_radius;
 uniform float particle_mass;
@@ -35,40 +36,44 @@ float smoothing(float radius, float diff) {
     return 0;
 }
 
-int compute_bucket_idx(ivec3 p) {
-    return p.x * bucket_cols * bucket_planes + p.y * bucket_planes + p.z;
+// the spatial hash
+int hash_function(ivec3 p) {
+    return ((p.x * 73856093) + (p.y * 19349663) + (p.z * 83492791)) % particles_count;
 }
 
 float density_from_nearest_particles(vec3 particle) {
     double density = 0.;
-    ivec3 base = ivec3(floor(particle - min_bound) / density_radius);
+    ivec3 base = ivec3(particle / density_radius);
 
     for (int i = -1; i <= 1; ++i) {
         for (int j = -1; j <= 1; ++j) {
             for (int k = -1; k <= 1; ++k) {
-                ivec3 neighbor = base + ivec3(i,j,k);
-                if (any(lessThan(neighbor, ivec3(0))) || any(greaterThanEqual(neighbor, ivec3(bucket_rows, bucket_cols, bucket_planes)))) continue;
+                int idx = nearby_idx[hash_function(base + ivec3(i,j,k))];
 
-                int idx = compute_bucket_idx(neighbor);
-                for(int l = 0; l < nearby_counts[idx] && l < per_bucket; ++l) {
-                    float d = length(predicted_particles[nearby[idx * per_bucket + l]].xyz - particle);
-                    density += particle_mass * smoothing(density_radius, d);
+                // this means that no such particle exists at those coordinates
+                if(idx == INT_MAX) continue;
+                int value = nearby[idx].grid_idx;
+
+                for(int l = 0; nearby[idx + l].grid_idx == value && l < particles_count; ++l) {
+                    float d = length(predicted_particles[nearby[idx + l].particle_idx].xyz - particle);
+                    density += smoothing(density_radius, d);
                 }
             }
         }
     }
 
-    return float(density);
+    return float(density) * particle_mass;
 }
 
-float calc_density(vec3 particle) {
-    double density = 0;
-    for (int i = 0; i < gl_NumWorkGroups.x * gl_WorkGroupSize.x; ++i) {
-        float d = length(predicted_particles[i].xyz - particle);
-        density += particle_mass * smoothing(density_radius, d);
-    }
-    return float(density);
-}
+// brute force density calculation for reference
+// float calc_density(vec3 particle) {
+//     double density = 0;
+//     for (int i = 0; i < gl_NumWorkGroups.x * gl_WorkGroupSize.x; ++i) {
+//         float d = length(predicted_particles[i].xyz - particle);
+//         density += smoothing(density_radius, d);
+//     }
+//     return float(density) * particle_mass;
+// }
 
 // add all of the values from the smoothing function in relation to all other
 // particles including itself to prevent density = 0
@@ -76,5 +81,5 @@ void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= particles_count) return;
 
-    predicted_particles[i].w = calc_density(predicted_particles[i].xyz);
+    predicted_particles[i].w = density_from_nearest_particles(predicted_particles[i].xyz);
 }
