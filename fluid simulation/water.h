@@ -155,7 +155,7 @@ GLuint create_shader_program(GLuint shader) {
     return shaderProgram;
 }
 
-void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned int>& faceList, int xpartitions, int ypartitions, float radius, vec3 offset) {
+void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned int>& faceList, int xpartitions, int ypartitions, float radius) {
     for (int i = 0; i < ypartitions + 1; ++i) {
         double u = (2.0 * M_PI * i) / (double)ypartitions;
         for (int j = 0; j < xpartitions + 1; ++j) {
@@ -165,7 +165,7 @@ void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned i
             float cv = cos(v);
             float sv = sin(v);
         
-            verts.push_back(radius * vec3(cv * cu, cv * su, sv) + offset);
+            verts.push_back(radius * vec3(cv * cu, cv * su, sv));
 
             vec3 normal = normalize(radius * vec3(cv * cu, cv * su, sv));
             normals.push_back(normal);

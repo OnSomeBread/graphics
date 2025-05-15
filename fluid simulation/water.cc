@@ -100,7 +100,7 @@ int main() {
     vector<unsigned int> faceList;
 
     // create basic sphere to be instanced
-    create_sphere(verts, normals, faceList, 16, 16, sphere_size, vec3(0));
+    create_sphere(verts, normals, faceList, 16, 16, sphere_size);
 
     // create the buffers for the shader program
     GLuint vao, vboPos, vboNorm, ebo;
@@ -360,21 +360,6 @@ int main() {
         }
     }
 
-    glDeleteVertexArrays(1, &vao);
-    glDeleteBuffers(1, &vboPos);
-    glDeleteBuffers(1, &vboNorm);
-    glDeleteBuffers(1, &ebo);
-    glDeleteBuffers(1, &particleVBO);
-
-    glDeleteBuffers(1, &particles_buffer);
-    glDeleteBuffers(1, &velocities_buffer);
-    glDeleteBuffers(1, &predicted_particles_buffer);
-    glDeleteBuffers(1, &nearby_buffer);
- 
-    glDeleteProgram(shaderProgram);
-    glDeleteProgram(computePredictedShaderProgram);
-    glDeleteProgram(computeDensityShaderProgram);
-    glDeleteProgram(computeShaderProgram);
     glfwDestroyWindow(window);
     glfwTerminate();
 }
