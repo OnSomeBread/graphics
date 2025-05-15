@@ -9,7 +9,7 @@ layout(std430, binding=4) buffer velocities_buffer {
     vec4 velocities[];
 };
 
-layout(std430, binding=5) buffer predicted_particles_buffer {
+layout(std430, binding=5) readonly buffer predicted_particles_buffer {
     vec4 predicted_particles[];
 };
 

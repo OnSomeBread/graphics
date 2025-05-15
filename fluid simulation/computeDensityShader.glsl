@@ -21,7 +21,6 @@ layout(std430, binding=8) readonly buffer nearby_idx_buffer {
 #define INT_MAX 2147483647
 
 uniform int particles_count;
-uniform vec3 bound_size;
 uniform float density_radius;
 uniform float particle_mass;
 

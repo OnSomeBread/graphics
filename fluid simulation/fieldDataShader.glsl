@@ -32,7 +32,6 @@ uniform int field_planes;
 uniform float density_radius;
 uniform float particle_mass;
 uniform vec3 min_bound;
-uniform vec3 max_bound;
 
 float M_PI = 3.14159265358979323846;
 

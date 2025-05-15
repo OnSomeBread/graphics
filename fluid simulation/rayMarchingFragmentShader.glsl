@@ -18,7 +18,6 @@ uniform vec2 u_mouse;
 uniform vec3 lightPos = vec3(-5., -5., 10);
 uniform vec3 lightColor = vec3(1.0, 1.0, 1.0);
 uniform vec3 objectColor = vec3(0.1804, 0.1804, 0.9216);
-uniform float isoValue = .0;
 
 // vec3 slow_particle_color = {.1, .25, 1};
 // vec3 fast_particle_color = {.25, .55, .95};
@@ -74,7 +73,7 @@ mat2 rot2D(float angle) {
 }
 
 void main() {
-    vec2 uv = (gl_FragCoord.xy / u_resolution) * 2.0 - 1.0;
+    vec2 uv = (gl_FragCoord.xy * 2. - u_resolution.xy) / u_resolution.y;
     vec2 m = (u_mouse * 2. - u_resolution.xy) / u_resolution.y;
 
     vec3 ro = vec3(40.0, -40.0, 20.0);
@@ -106,7 +105,7 @@ void main() {
     }
 
     float t = max(t_enter, 0.0);
-    float stepSize = 0.8;
+    float stepSize = 0.01;
     float total_density = 0.0;
     vec3 total_light = vec3(0.);
 

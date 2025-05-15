@@ -6,8 +6,12 @@ struct Entry {
     int grid_idx;
 };
 
-layout(std430, binding=7) buffer nearby_buffer {
+layout(std430, binding=7) writeonly buffer nearby_buffer {
     Entry nearby[];
+};
+
+layout(std430, binding=8) writeonly buffer nearby_idx_buffer {
+    int nearby_idx[];
 };
 
 uniform int particles_count;
@@ -19,4 +23,5 @@ void main() {
     if (i >= particles_count) return;
 
     nearby[i] = Entry(INT_MAX, INT_MAX);
+    nearby_idx[i] = INT_MAX;
 }
