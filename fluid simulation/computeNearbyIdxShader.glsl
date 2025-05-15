@@ -18,7 +18,6 @@ uniform int particles_count;
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i >= particles_count) return;
 
     if(i == 0 || nearby[i].grid_idx != nearby[i - 1].grid_idx) {
         nearby_idx[nearby[i].grid_idx] = int(i);

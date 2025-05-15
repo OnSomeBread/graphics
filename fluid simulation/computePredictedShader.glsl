@@ -22,10 +22,16 @@ layout(std430, binding=7) writeonly buffer nearby_buffer {
     Entry nearby[];
 };
 
+layout(std430, binding=8) writeonly buffer nearby_idx_buffer {
+    int nearby_idx[];
+};
+
 uniform int particles_count;
 uniform float density_radius;
 uniform float gravity;
 uniform float dt;
+
+#define INT_MAX 2147483647
 
 // massive optimization to allow for more particles
 // split the bounding box into grid squares of size density_radius
@@ -38,7 +44,6 @@ int hash_function(ivec3 p) {
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i >= particles_count) return;
 
     // add gravitational forces to particles
     velocities[i].z -= gravity * dt;
@@ -50,4 +55,5 @@ void main() {
 
     vec3 p = predicted_particles[i].xyz / density_radius;
     nearby[i] = Entry(int(i), hash_function(ivec3(p.x, p.y, p.z)));
+    nearby_idx[i] = INT_MAX;
 }

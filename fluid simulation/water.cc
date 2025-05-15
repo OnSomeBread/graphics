@@ -24,7 +24,6 @@ int main() {
     string computeShaderStr = loadShaderSource("computeShader.glsl");
     string computePredictedShaderStr = loadShaderSource("computePredictedShader.glsl");
     string computeDensityShaderStr = loadShaderSource("computeDensityShader.glsl");
-    string computeClearNearbyShaderStr = loadShaderSource("computeClearNearbyShader.glsl");
     string computeNearbySortShaderStr = loadShaderSource("computeNearbySortShader.glsl");
     string computeNearbyIdxShaderStr = loadShaderSource("computeNearbyIdxShader.glsl");
     string fieldDataShaderStr = loadShaderSource("fieldDataShader.glsl");
@@ -45,7 +44,6 @@ int main() {
     GLuint computePredictedShaderProgram = create_shader_program(create_shader(computePredictedShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeDensityShaderProgram = create_shader_program(create_shader(computeDensityShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeShaderProgram = create_shader_program(create_shader(computeShaderStr.c_str(), GL_COMPUTE_SHADER));
-    GLuint computeClearNearbyShaderProgram = create_shader_program(create_shader(computeClearNearbyShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeNearbySortShaderProgram = create_shader_program(create_shader(computeNearbySortShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeNearbyIdxShaderProgram = create_shader_program(create_shader(computeNearbyIdxShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint fieldDataShaderProgram = create_shader_program(create_shader(fieldDataShaderStr.c_str(), GL_COMPUTE_SHADER));
@@ -58,6 +56,7 @@ int main() {
     vec3 min_bound(0.);
     vec3 max_bound(100.);
     vec3 bound_size = max_bound - min_bound;
+    vec4 v0Dir = vec4(5.);
     const float sphere_size = .5;
     const float gravity = 9.8;
     const float particle_mass = 1;
@@ -65,10 +64,11 @@ int main() {
     const float density_radius = 1.9;
     const float target_density = 2.75;
     const float pressure_multiplier = 275;
-    const float viscosity_multiplier = .12;
+    const float viscosity_multiplier = .15;
 
-    // particle_count must be power of 2 for the parallel sort -- must fix
-    create_particle_system(particles, min_bound, max_bound, 32, 32, 32);
+    // TODO particle_count must be power of 2 for the parallel sort -- MUST FIX
+    int N = 5;
+    create_particle_system(particles, min_bound, max_bound, pow(2, N), pow(2, N), pow(2, N));
     const int particles_count = particles.size();
 
     // ray marching field data settings
@@ -147,7 +147,7 @@ int main() {
     glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1);
 
-    vector<vec4> v0(particles_count, vec4(0.));
+    vector<vec4> v0(particles_count, v0Dir);
     glGenBuffers(1, &velocities_buffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, velocities_buffer);
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vec4) * v0.size(), v0.data(), GL_STATIC_DRAW);
@@ -198,9 +198,6 @@ int main() {
     glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "density_radius"), density_radius);
     glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "gravity"), gravity);
 
-    glUseProgram(computeClearNearbyShaderProgram);
-    glUniform1i(glGetUniformLocation(computeClearNearbyShaderProgram, "particles_count"), particles_count);
-
     glUseProgram(computeNearbyIdxShaderProgram);
     glUniform1i(glGetUniformLocation(computeNearbyIdxShaderProgram, "particles_count"), particles_count);
 
@@ -243,43 +240,36 @@ int main() {
     //glDisable(GL_DEPTH_TEST);
 
     int frames = 0;
-    auto last_frame_time = std::chrono::high_resolution_clock::now();
+    double last_frame_time = 0;
     double last_fps_print_time = 0.;
 
     while (!glfwWindowShouldClose(window)) {
-        auto curr = std::chrono::high_resolution_clock::now();
-        double dt = std::chrono::duration_cast<std::chrono::microseconds>(
-                        curr - last_frame_time)
-                        .count() /
-                    1000000.0;
+        double currTime = glfwGetTime();
+        double dt = currTime - last_frame_time;
 
         // this prevents massive spikes from moving the screen 
         // since it pauses also from low fps
         dt = std::min(dt, .05);
 
-        last_frame_time = curr;
+        last_frame_time = currTime;
 
         processInput(window);
         glClearColor(0.6, 0.7, 0.8, 1.);  
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // create the spatial lookup table for this frame for all the future shaders to use
-        glUseProgram(computeClearNearbyShaderProgram);
-        glDispatchCompute(dispatch_size, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-        // run predicted particles compute shader
+        // and create predicted particles for better particle position estimation
         glUseProgram(computePredictedShaderProgram);
         glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "dt"), dt);
         glDispatchCompute(dispatch_size, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
+        // sort the spatial look up table called nearby
+        // only works in particles_count is a power of 2
+        // TODO change so that array length can be any length
         glUseProgram(computeNearbySortShaderProgram);
         GLuint kLoc = glGetUniformLocation(computeNearbySortShaderProgram, "k");
         GLuint jLoc = glGetUniformLocation(computeNearbySortShaderProgram, "j");
-
-        // only works in particles_count is a power of 2
-        // TODO change so that array length can be any length
         for (int k = 2; k <= particles_count; k *= 2) {
             for (int j = k / 2; j > 0; j /= 2) {
                 glUniform1i(kLoc, k);
@@ -290,7 +280,7 @@ int main() {
             }
         }
 
-        // used to map to correct grid coord the particle belongs to
+        // used to map to correct grid coord the particle belongs to in nearby
         glUseProgram(computeNearbyIdxShaderProgram);
         glDispatchCompute(dispatch_size, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -330,10 +320,9 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        frames++;
+        ++frames;
 
         // print fps
-        double currTime = glfwGetTime();
         if(currTime - last_fps_print_time > .5) {
             cout << (int)(frames / currTime) << endl;
             last_fps_print_time = currTime;

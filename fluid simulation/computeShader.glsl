@@ -170,7 +170,6 @@ vec3 viscosity_force(vec3 particle, vec3 velocity) {
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i >= particles_count) return;
 
     // add particle pressure forces
     // tells the particle how fast it should conform to target density
@@ -183,7 +182,8 @@ void main() {
     vec3 viscosity_accel = viscosity_force(predicted_particles[i].xyz, velocities[i].xyz);
     velocities[i] += vec4(viscosity_accel * viscosity_multiplier * dt, 0.);
 
-    particles[i] += velocities[i] * dt;
+    // clamp to stop some aggressive behaviors at high speeds
+    particles[i] += clamp(velocities[i], vec4(-50.), vec4(50.)) * dt;
 
     if (particles[i].x < min_bound.x) {
         particles[i].x = min_bound.x;

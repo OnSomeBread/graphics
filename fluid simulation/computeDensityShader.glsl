@@ -76,9 +76,8 @@ float calc_density(vec3 particle) {
 
 // add all of the values from the smoothing function in relation to all other
 // particles including itself to prevent density = 0
+
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    if (i >= particles_count) return;
-
     predicted_particles[i].w = calc_density(predicted_particles[i].xyz);
 }
