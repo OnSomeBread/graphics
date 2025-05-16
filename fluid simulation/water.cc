@@ -54,7 +54,7 @@ int main() {
 
     // particle system settings
     vec3 min_bound(0.);
-    vec3 max_bound(100.);
+    vec3 max_bound(50.);
     vec3 bound_size = max_bound - min_bound;
     vec4 v0Dir = vec4(5.);
     const float sphere_size = .5;
@@ -67,7 +67,7 @@ int main() {
     const float viscosity_multiplier = .15;
 
     // TODO particle_count must be power of 2 for the parallel sort -- MUST FIX
-    int N = 5;
+    int N = 4;
     create_particle_system(particles, min_bound, max_bound, pow(2, N), pow(2, N), pow(2, N));
     const int particles_count = particles.size();
 
@@ -236,8 +236,10 @@ int main() {
     glUniform3fv(glGetUniformLocation(rayMarchingShaderProgram, "max_bound"), 1, glm::value_ptr(max_bound));
     glUniform2f(glGetUniformLocation(rayMarchingShaderProgram, "u_resolution"), (float)screen_width, (float)screen_height);
 
-    glEnable(GL_DEPTH_TEST);
-    //glDisable(GL_DEPTH_TEST);
+    // glEnable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
+    // glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     int frames = 0;
     double last_frame_time = 0;
@@ -297,25 +299,25 @@ int main() {
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         
         // draw spheres
-        glUseProgram(shaderProgram);
-        glBindVertexArray(vao);
-        glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles_count);
+        // glUseProgram(shaderProgram);
+        // glBindVertexArray(vao);
+        // glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles_count);
 
         // create the density field
-        // glUseProgram(fieldDataShaderProgram);
-        // glDispatchCompute(field_rows / 4, field_cols / 4, field_planes / 4);
-        // glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        glUseProgram(fieldDataShaderProgram);
+        glDispatchCompute(field_rows / 4, field_cols / 4, field_planes / 4);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        // // draw full screen for rayMarching
-        // glUseProgram(rayMarchingShaderProgram);
+        // draw full screen for rayMarching
+        glUseProgram(rayMarchingShaderProgram);
 
-        // double xpos;
-        // double ypos;
-        // glfwGetCursorPos(window, &xpos, &ypos);
-        // glUniform2f(glGetUniformLocation(rayMarchingShaderProgram, "u_mouse"), (float)xpos, (float)ypos);
+        double xpos;
+        double ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        glUniform2f(glGetUniformLocation(rayMarchingShaderProgram, "u_mouse"), (float)xpos, (float)ypos);
 
-        // glBindVertexArray(rayMarchingVAO);
-        // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glBindVertexArray(rayMarchingVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

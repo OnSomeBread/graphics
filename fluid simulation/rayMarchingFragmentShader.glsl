@@ -53,7 +53,8 @@ float trilinear_sample(vec3 world_pos) {
     return mix(c0, c1, f.z);
 }
 
-float refraction(vec3 inRay, vec3 normal, float airRefraction, float waterRefraction) {
+// calculates how much light is reflected and 1 - calc_reflectance is how much light is refracted
+float calc_reflectance(vec3 inRay, vec3 normal, float airRefraction, float waterRefraction) {
     float refractRatio = airRefraction / waterRefraction;
     float cosIn = -dot(inRay, normal);
     float sinSqrRefract = refractRatio * refractRatio * (1 - cosIn * cosIn);
@@ -66,10 +67,29 @@ float refraction(vec3 inRay, vec3 normal, float airRefraction, float waterRefrac
     return (sqrtRayPerp * sqrtRayPerp + sqrtRayParallel * sqrtRayParallel) / 2.; 
 }
 
+// calculates direction of refraction given in coming direction
+vec3 refract(vec3 inRay, vec3 normal, float airRefraction, float waterRefraction) {
+    float refractRatio = airRefraction / waterRefraction;
+    float cosIn = -dot(inRay, normal);
+    float sinSqrRefract = refractRatio * refractRatio * (1 - cosIn * cosIn);
+    return inRay * refractRatio + normal * (refractRatio * cosIn - sqrt(1 - sinSqrRefract));
+}
+
+// this works well for 3d rotations using swizzling 
+// the axis missing from the swizzle is the axis of rotation
 mat2 rot2D(float angle) {
     float s = sin(angle);
     float c = cos(angle);
     return mat2(c, -s, s, c);
+}
+
+// central differences normal approximation
+vec3 calc_normal(vec3 p) {
+    float h = .1;
+    float dx = trilinear_sample(p + vec3(h, 0., 0.)) - trilinear_sample(p - vec3(h, 0., 0.));
+    float dy = trilinear_sample(p + vec3(0., h, 0.)) - trilinear_sample(p - vec3(0., h, 0.));
+    float dz = trilinear_sample(p + vec3(0., 0., h)) - trilinear_sample(p - vec3(0., 0., h));
+    return normalize(vec3(dx, dy, dz) / (2. * h));
 }
 
 void main() {
@@ -77,15 +97,15 @@ void main() {
     vec2 m = (u_mouse * 2. - u_resolution.xy) / u_resolution.y;
 
     vec3 ro = vec3(40.0, -40.0, 20.0);
-    // ray points to +p
+    // funky swizzle is to make ray point to +y
     vec3 rd = normalize(vec3(uv * 1.0, 1.0)).xzy;
 
     // verticle rotation happens before the horizontal
-    // ro.yz *= rot2D(-m.y);
-    // rd.yz *= rot2D(-m.y);
+    ro.yz *= rot2D(-m.y);
+    rd.yz *= rot2D(-m.y);
 
-    // ro.xz *= rot2D(-m.x);
-    // rd.xz *= rot2D(-m.x);
+    ro.xz *= rot2D(-m.x);
+    rd.xz *= rot2D(-m.x);
 
     vec3 inv_rd = 1.0 / rd;
 
@@ -117,7 +137,7 @@ void main() {
     float airRefraction = speedVacuum / speedLight;
     float waterRefraction = speedVacuum / speedWater;
 
-    for (int i = 0; i < 200. / stepSize; ++i) {
+    for (int i = 0; i < 100. / stepSize; ++i) {
         if (t > t_exit) break;
 
         vec3 p = ro + rd * t;
