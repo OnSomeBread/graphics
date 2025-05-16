@@ -78,15 +78,12 @@ void main() {
     uint y = gl_GlobalInvocationID.y;
     uint z = gl_GlobalInvocationID.z;
 
-    if (x >= field_rows || y >= field_cols || z >= field_planes) return;
+    //if (x >= field_rows || y >= field_cols || z >= field_planes) return;
 
-    int i = int(x) * field_cols * field_planes;
-    int j = int(y) * field_planes;
-    int k = int(z);
+    uint i = x * field_cols * field_planes;
+    uint j = y * field_planes;
+    uint k = z;
 
-    int index = i + j + k;
-
-    vec3 field_particle = min_bound + vec3(float(x) * field_size + field_size * .5, float(y) * field_size + field_size * .5, float(z) * field_size + field_size * .5);
-
-    field_data[index] = calc_density(field_particle);
+    vec3 field_particle = min_bound + vec3(float(x) * field_size, float(y) * field_size, float(z) * field_size);
+    field_data[i + j + k] = calc_density(field_particle);
 }

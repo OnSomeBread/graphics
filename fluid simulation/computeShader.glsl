@@ -79,7 +79,7 @@ float steeperSmoothing(float dst, float radius) {
 }
 
 float DsteeperSmoothing(float dst, float radius) {
-    if (dst <= radius) {
+    if (dst < radius) {
         float volume = (pow(radius, 6.) * M_PI) / 35.0;
         return -pow(radius - dst, 2.) / volume;
     }
@@ -108,15 +108,12 @@ vec3 pressure_force(vec4 particle) {
                     int particle_idx = nearby[idx + l].particle_idx;
 
                     vec3 particle_diff = predicted_particles[particle_idx].xyz - particle.xyz;
-                    if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
-                        continue;
-                    }
 
                     float d = length(particle_diff);
                     float ds = dsmoothing(density_radius, d);
 
                     // near density smoothing
-                    float nds = steeperSmoothing(density_radius, d) * near_pressure_multiplier;
+                    //float nds = steeperSmoothing(density_radius, d) * near_pressure_multiplier;
 
                     // if moving in same direction pick a random one instead
                     vec3 dir = d == 0 ? random_dir(float(gl_GlobalInvocationID.x + particle_idx)) : particle_diff / d;
@@ -154,9 +151,6 @@ vec3 viscosity_force(vec3 particle, vec3 velocity) {
                     int particle_idx = nearby[idx + l].particle_idx;
 
                     vec3 particle_diff = particle - predicted_particles[particle_idx].xyz;
-                    if(particle_diff.x == 0 && particle_diff.y == 0 && particle_diff.z == 0){
-                        continue;
-                    }
                     float d = length(particle_diff);
                     float s = smoothing(density_radius, d);
                     viscosity += (velocities[i].xyz - velocity) * s;
@@ -183,32 +177,11 @@ void main() {
     velocities[i] += vec4(viscosity_accel * viscosity_multiplier * dt, 0.);
 
     // clamp to stop some aggressive behaviors at high speeds
-    particles[i] += clamp(velocities[i], vec4(-50.), vec4(50.)) * dt;
+    particles[i] += clamp(velocities[i], vec4(-25.), vec4(25.)) * dt;
 
-    if (particles[i].x < min_bound.x) {
-        particles[i].x = min_bound.x;
-        velocities[i].x *= -particle_damping;
-    }
-    if (particles[i].x > max_bound.x) {
-        particles[i].x = max_bound.x;
-        velocities[i].x *= -particle_damping;
-    }
-
-    if (particles[i].y < min_bound.y) {
-        particles[i].y = min_bound.y;
-        velocities[i].y *= -particle_damping;
-    }
-    if (particles[i].y > max_bound.y) {
-        particles[i].y = max_bound.y;
-        velocities[i].y *= -particle_damping;
-    }
-
-    if (particles[i].z < min_bound.z) {
-        particles[i].z = min_bound.z;
-        velocities[i].z *= -particle_damping;
-    }
-    if (particles[i].z > max_bound.z) {
-        particles[i].z = max_bound.z;
-        velocities[i].z *= -particle_damping;
-    }
+    // check bounds and reverse particle direction with damping if bounds are hit
+    vec3 p = particles[i].xyz;
+    vec3 c = clamp(p, min_bound, max_bound);
+    particles[i] = vec4(c, 0.);
+    velocities[i] = mix(velocities[i], velocities[i] * -particle_damping, vec4(notEqual(p, c), 0.));
 }

@@ -101,11 +101,11 @@ void main() {
     vec3 rd = normalize(vec3(uv * 1.0, 1.0)).xzy;
 
     // verticle rotation happens before the horizontal
-    ro.yz *= rot2D(-m.y);
-    rd.yz *= rot2D(-m.y);
+    // ro.yz *= rot2D(-m.y);
+    // rd.yz *= rot2D(-m.y);
 
-    ro.xz *= rot2D(-m.x);
-    rd.xz *= rot2D(-m.x);
+    // ro.xz *= rot2D(-m.x);
+    // rd.xz *= rot2D(-m.x);
 
     vec3 inv_rd = 1.0 / rd;
 

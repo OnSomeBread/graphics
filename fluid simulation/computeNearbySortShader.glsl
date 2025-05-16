@@ -23,8 +23,7 @@ void main() {
         Entry tempA = nearby[i];
         Entry tempB = nearby[ixj];
 
-        bool swap = (ascending && (tempA.grid_idx > tempB.grid_idx)) || (!ascending && (tempA.grid_idx < tempB.grid_idx));
-        if (swap) {
+        if ((ascending && (tempA.grid_idx > tempB.grid_idx)) || (!ascending && (tempA.grid_idx < tempB.grid_idx))) {
             nearby[i] = tempB;
             nearby[ixj] = tempA;
         }

@@ -44,6 +44,8 @@ float calc_density(vec3 particle) {
     double density = 0.;
     ivec3 base = ivec3(particle / density_radius);
 
+    float density_radius_square = density_radius * density_radius;
+
     for (int i = -1; i <= 1; ++i) {
         for (int j = -1; j <= 1; ++j) {
             for (int k = -1; k <= 1; ++k) {
@@ -63,16 +65,6 @@ float calc_density(vec3 particle) {
 
     return float(density) * particle_mass;
 }
-
-// brute force density calculation for reference
-// float calc_density(vec3 particle) {
-//     double density = 0;
-//     for (int i = 0; i < gl_NumWorkGroups.x * gl_WorkGroupSize.x; ++i) {
-//         float d = length(predicted_particles[i].xyz - particle);
-//         density += smoothing(density_radius, d);
-//     }
-//     return float(density) * particle_mass;
-// }
 
 // add all of the values from the smoothing function in relation to all other
 // particles including itself to prevent density = 0

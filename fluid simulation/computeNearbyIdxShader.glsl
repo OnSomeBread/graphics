@@ -17,9 +17,8 @@ layout(std430, binding=8) writeonly buffer nearby_idx_buffer {
 uniform int particles_count;
 
 void main() {
-    uint i = gl_GlobalInvocationID.x;
-
+    int i = int(gl_GlobalInvocationID.x);
     if(i == 0 || nearby[i].grid_idx != nearby[i - 1].grid_idx) {
-        nearby_idx[nearby[i].grid_idx] = int(i);
+        nearby_idx[nearby[i].grid_idx] = i;
     }
 }
