@@ -58,6 +58,14 @@ float density(vec3 p) {
     return d * 0.2;
 }
 
+vec3 calc_normal(vec3 p, float r) {
+    float h = .001;
+    float dx = circle(p + vec3(h, 0., 0.), r) - circle(p - vec3(h, 0., 0.), r);
+    float dy = circle(p + vec3(0., h, 0.), r) - circle(p - vec3(0., h, 0.), r);
+    float dz = circle(p + vec3(0., 0., h), r) - circle(p - vec3(0., 0., h), r);
+    return normalize(vec3(dx, dy, dz) / (2. * h));
+}
+
 float map(vec3 p){
     p.z += u_time * .4;
 
@@ -88,6 +96,7 @@ void main() {
 
     //m = vec2(cos(u_time*.2) , sin(u_time*.2));
 
+    float r = 1.;
     int j = 0;
     for(int i = 0; i < 80; i++){
         vec3 p = ro + rd * t;
@@ -96,7 +105,7 @@ void main() {
 
         //p.y += sin(t*(m.y + 1.) * .5)*.35;
 
-        float d = map(p);
+        float d = circle(p, r);
         t += d;
 
         j = i;
@@ -104,8 +113,26 @@ void main() {
         if(d < .001 || t > 500.) break;
     }
 
-    col = palette(t * .09 + float(j) * .005);
-    //col = vec3(t * .1);
+    //col = palette(t * .09 + float(j) * .005);
+
+    vec3 hit = ro + rd * t;
+    vec3 normal = calc_normal(hit, r);
+
+    // fake water surface noise
+    normal += 0.06 * sin(hit * 20.0); 
+    normal = normalize(normal);
+
+    float fresnel = pow(1. - max(dot(normal, -rd), 0.), 5.);
+    fresnel = mix(.02, 1., fresnel);
+
+    // both of these are meant to be sampled from the environment
+    // sky or other background color
+    vec3 reflectionColor = vec3(0.098, 0.4078, 0.5529);
+
+    // underwater and behind color  
+    vec3 refractionColor = vec3(0.0, 0.0, 0.0);
+
+    col = mix(reflectionColor, refractionColor, fresnel);
 
     gl_FragColor = vec4(col, 1.);
 }
