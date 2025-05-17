@@ -19,6 +19,8 @@ int main() {
     string fragmentShaderStr = loadShaderSource("fragmentShader.glsl");
     string rayMarchingVertexShaderStr = loadShaderSource("rayMarchingVertexShader.glsl");
     string rayMarchingFragmentShaderStr = loadShaderSource("rayMarchingFragmentShader.glsl");
+    string quadVertexShaderStr = loadShaderSource("quadVertexShader.glsl");
+    string quadFragmentShaderStr = loadShaderSource("quadFragmentShader.glsl");
 
     // compute shaders
     string computeShaderStr = loadShaderSource("computeShader.glsl");
@@ -38,9 +40,14 @@ int main() {
     rayMarchingShaders.push_back(create_shader(rayMarchingVertexShaderStr.c_str(), GL_VERTEX_SHADER));
     rayMarchingShaders.push_back(create_shader(rayMarchingFragmentShaderStr.c_str(), GL_FRAGMENT_SHADER));
 
+    vector<GLuint> quadShaders;
+    quadShaders.push_back(create_shader(quadVertexShaderStr.c_str(), GL_VERTEX_SHADER));
+    quadShaders.push_back(create_shader(quadFragmentShaderStr.c_str(), GL_FRAGMENT_SHADER));
+
     // create all of the needed shader programs
     GLuint shaderProgram = create_shader_program(shaders);
     GLuint rayMarchingShaderProgram = create_shader_program(rayMarchingShaders);
+    GLuint quadShaderProgram = create_shader_program(quadShaders);
     GLuint computePredictedShaderProgram = create_shader_program(create_shader(computePredictedShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeDensityShaderProgram = create_shader_program(create_shader(computeDensityShaderStr.c_str(), GL_COMPUTE_SHADER));
     GLuint computeShaderProgram = create_shader_program(create_shader(computeShaderStr.c_str(), GL_COMPUTE_SHADER));
@@ -56,7 +63,7 @@ int main() {
     vec3 min_bound(0.);
     vec3 max_bound(200.);
     vec3 bound_size = max_bound - min_bound;
-    vec4 v0Dir = vec4(0.);
+    vec4 v0Dir = vec4(2.);
     const float sphere_size = .5;
     const float gravity = 9.8;
     const float particle_mass = 1;
@@ -68,7 +75,14 @@ int main() {
 
     // TODO particle_count must be power of 2 for the parallel sort -- MUST FIX
     int N = 5;
-    create_particle_system(particles, min_bound, max_bound, pow(2, N), pow(2, N), pow(2, N));
+    int r = pow(2, N);
+    int c = pow(2, N);
+    int p = pow(2, N);
+    //float size = length(max_bound - min_bound) / 2. - 10.;
+    float size = 100.;
+
+    create_particle_cube(particles, min_bound, size, r, c, p);
+    create_particle_cube(particles, min_bound + vec3(size, size, 0), size, r, c, p);
     const int particles_count = particles.size();
 
     // ray marching field data settings
@@ -89,6 +103,7 @@ int main() {
 
     glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
     glm::mat4 projection = glm::perspective(fovy, aspectRatio, nearPlane, farPlane);
+    glm::mat4 viewProjection = projection * view;
 
     const int dispatch_size = particles_count / 32;
 
@@ -97,7 +112,7 @@ int main() {
     vector<unsigned int> faceList;
 
     // create basic sphere to be instanced
-    create_sphere(verts, normals, faceList, 12, 12, sphere_size);
+    create_sphere(verts, normals, faceList, 10, 10, sphere_size);
 
     // create the buffers for the shader program
     GLuint vao, vboPos, vboNorm, ebo;
@@ -122,6 +137,26 @@ int main() {
     glGenBuffers(1, &ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, faceList.size() * sizeof(unsigned int), faceList.data(), GL_STATIC_DRAW);
+
+    float quadVerts[] = {
+        -1., -1.,
+         1., -1.,
+        -1.,  1.,
+         1.,  1.
+    };
+
+    GLuint quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glBindVertexArray(quadVAO);
+
+    glGenBuffers(1, &quadVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVerts), quadVerts, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+    glBindVertexArray(0);
 
     // particle positions
     GLuint particleVBO;
@@ -190,8 +225,13 @@ int main() {
 
     // setup constant uniforms for each of the shader program
     glUseProgram(shaderProgram);
-    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "viewProjection"), 1, GL_FALSE, glm::value_ptr(viewProjection));
+
+    glUseProgram(quadShaderProgram);
+    glUniformMatrix4fv(glGetUniformLocation(quadShaderProgram, "viewProjection"), 1, GL_FALSE, glm::value_ptr(viewProjection));
+    glUniformMatrix4fv(glGetUniformLocation(quadShaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    glUniform3fv(glGetUniformLocation(quadShaderProgram, "cameraPos"), 1, glm::value_ptr(cameraPos));
+    glUniform1f(glGetUniformLocation(quadShaderProgram, "size"), 1);
 
     glUseProgram(computePredictedShaderProgram);
     glUniform1i(glGetUniformLocation(computePredictedShaderProgram, "particles_count"), particles_count);
@@ -256,7 +296,7 @@ int main() {
         last_frame_time = currTime;
 
         processInput(window);
-        glClearColor(0.6, 0.7, 0.8, 1.);  
+        glClearColor(0., 0., 0., 1.);  
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // create the spatial lookup table for this frame for all the future shaders to use
@@ -302,6 +342,11 @@ int main() {
         glUseProgram(shaderProgram);
         glBindVertexArray(vao);
         glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles_count);
+
+        // draw quads
+        // glUseProgram(quadShaderProgram);
+        // glBindVertexArray(quadVAO);
+        // glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, particles_count);
 
         // create the density field
         // glUseProgram(fieldDataShaderProgram);

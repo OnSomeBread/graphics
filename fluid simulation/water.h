@@ -192,27 +192,23 @@ void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned i
     }
 }
 
-void create_particle_system(vector<vec4>& particles, vec3 min_bound, vec3 max_bound, int rows, int cols, int planes) {
-    vec3 extra(5.);
-
-    vec3 bound_size = max_bound - min_bound;
-    vec3 spacing((bound_size.x - extra.x) / (float)rows,
-                  (bound_size.y - extra.y) / (float)cols,
-                  (bound_size.z - extra.z) / (float)planes);
-
-    // make a particle grid with some randomization in how they are placed along
-    // the grid
-    vec4 pos = vec4(min_bound, 0);
+// grid builds in +x, +y, +z from offset where x builds rows, y builds cols, and z builds planes
+void create_particle_cube(vector<vec4>& particles, vec3 offset, float size, int rows, int cols, int planes) {
+    vec3 spacing(size / (float)rows, size / (float)cols, size / (float)planes);
+    vec4 pos = vec4(0.);
+    
     for (int i = 0; i < rows; ++i) {
-        pos.x = i * spacing.x;
+        pos.x = offset.x + i * spacing.x;
         for (int j = 0; j < cols; ++j) {
-            pos.y = j * spacing.y;
+            pos.y = offset.y + j * spacing.y;
             for (int k = 0; k < planes; ++k) {
-                pos.x += random_float(-spacing.x / 3.0, spacing.x / 3.0);
-                pos.y += random_float(-spacing.y / 3.0, spacing.y / 3.0);
-                pos.z = k * spacing.z +
-                        random_float(-spacing.z / 3.0, spacing.z / 3.0);
-                particles.push_back(pos);
+                pos.z = offset.z + k * spacing.z;
+
+                float rx = random_float(-spacing.x / 4., spacing.x / 4.);
+                float ry = random_float(-spacing.y / 4., spacing.y / 4.);
+                float rz = random_float(-spacing.z / 4., spacing.z / 4.);
+                
+                particles.push_back(pos + vec4(rx, ry, rz, 0.));
             }
         }
     }
