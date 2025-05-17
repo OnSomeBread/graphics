@@ -68,12 +68,12 @@ float calc_reflectance(vec3 inRay, vec3 normal, float airRefraction, float water
 }
 
 // calculates direction of refraction given in coming direction
-vec3 refract(vec3 inRay, vec3 normal, float airRefraction, float waterRefraction) {
-    float refractRatio = airRefraction / waterRefraction;
-    float cosIn = -dot(inRay, normal);
-    float sinSqrRefract = refractRatio * refractRatio * (1 - cosIn * cosIn);
-    return inRay * refractRatio + normal * (refractRatio * cosIn - sqrt(1 - sinSqrRefract));
-}
+// vec3 refract(vec3 inRay, vec3 normal, float airRefraction, float waterRefraction) {
+//     float refractRatio = airRefraction / waterRefraction;
+//     float cosIn = -dot(inRay, normal);
+//     float sinSqrRefract = refractRatio * refractRatio * (1 - cosIn * cosIn);
+//     return inRay * refractRatio + normal * (refractRatio * cosIn - sqrt(1 - sinSqrRefract));
+// }
 
 // this works well for 3d rotations using swizzling 
 // the axis missing from the swizzle is the axis of rotation
@@ -124,12 +124,12 @@ void main() {
         return;
     }
 
-    float t = max(t_enter, 0.0);
+    double t = max(t_enter, 0.0);
     float stepSize = 0.01;
     float total_density = 0.0;
     vec3 total_light = vec3(0.);
 
-    vec3 scatteringCoefficients = vec3(0.2588, 0.6039, 0.7412);
+    vec3 baseColor = vec3(0.2588, 0.6039, 0.7412);
     float speedVacuum = 299792458;
     float speedLight = 299702547;
     float speedWater = 225000000;
@@ -138,21 +138,33 @@ void main() {
     float waterRefraction = speedVacuum / speedWater;
 
     for (int i = 0; i < 100. / stepSize; ++i) {
-        if (t > t_exit) break;
+        if (float(t) > t_exit) break;
+        if (total_density > 2.) break;
 
-        vec3 p = ro + rd * t;
+        vec3 p = ro + rd * float(t);
         float d = trilinear_sample(p) * stepSize;
 
         total_density += d;
 
         //float sunRayColor = 
 
-        vec3 scatteredLight = vec3(1.) * d * scatteringCoefficients;
-        vec3 rayTransmittance = exp(-d * scatteringCoefficients);
-        total_light += scatteredLight * rayTransmittance;
+        vec3 scatteredLight = vec3(1.) * d * baseColor;
+        vec3 rayTransmittance = exp(-d * baseColor);
+        //total_light += scatteredLight * rayTransmittance;
+        total_light += (1. - total_density) * d * baseColor;
+
         t += stepSize;
     }
 
-    FragColor = vec4(total_light, 1.0);
+    vec3 lightDir = normalize(vec3(-1., -1., .5));
+    float light = max(dot(rd, -lightDir), .0);
+
+    vec2 offset = refract(rd, vec3(0., 0., 1.), waterRefraction).xy;
+
+    // would sample from the environment or just use solid color
+    vec3 background = vec3(0.0, 0.0, 0.0);
+
+    vec3 col = mix(background, total_light * light, total_density);
+    FragColor = vec4(col, 1.0);
     //FragColor = vec4(vec3(total_density * 0.5), 1.0);
 }
