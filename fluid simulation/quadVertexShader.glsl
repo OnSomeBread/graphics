@@ -6,6 +6,7 @@ layout(std430, binding=3) readonly buffer particles_buffer {
 };
 
 out vec2 quadPos;
+out vec3 quadOffset;
 out uint i;
 
 uniform mat4 viewProjection;
@@ -21,5 +22,6 @@ void main(){
 
     i = gl_InstanceID;
     quadPos = aQuadPos;
+    quadOffset = offset;
     gl_Position = viewProjection * vec4(worldPos, 1.0);
 }

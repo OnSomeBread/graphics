@@ -5,14 +5,19 @@ layout(std430, binding=3) readonly buffer particles_buffer {
 };
 
 in vec2 quadPos;
+in vec3 quadOffset;
+
 in vec3 FragPos;
 in flat uint i;
 out vec4 FragColor;
 
-uniform vec3 lightPos = vec3(-5., -5., 10);
+uniform vec3 lightPos = vec3(125., 125., 250);
+uniform vec3 farLightDir = normalize(vec3(-1, -1, 1));
 uniform vec3 lightColor = vec3(1.0, 1.0, 1.0);
-uniform vec3 objectColor = vec3(0.0275, 0.2784, 0.6078);
+uniform vec3 objectColor = vec3(0.2039, 0.5412, 0.9882);
 uniform vec3 cameraPos;
+uniform float size;
+uniform float u_time;
 
 // vec3 slow_particle_color = {.1, .25, 1};
 // vec3 fast_particle_color = {.25, .55, .95};
@@ -23,7 +28,48 @@ void main(){
     float sqrDst = dot(quadCenter, quadCenter);
     if(sqrDst > 1) discard;
 
-    float depth = length(particles[i].xyz - cameraPos);
-    //FragColor = vec4(depth);
-    FragColor = vec4(0.1373, 0.5255, 0.7059, 1.0);
+    // sphere imposter
+    float quadz = sqrt(1 - quadCenter.x * quadCenter.x - quadCenter.y * quadCenter.y);
+    vec3 quadNormal = normalize(vec3(quadCenter, quadz));
+
+    // FragColor = vec4(quadNormal * 0.5 + 0.5, 1.);
+    // return ;
+
+    vec3 lightDir = normalize(lightPos - particles[i].xyz);
+    vec3 viewDir = normalize(cameraPos - particles[i].xyz);
+
+    float diffPointLight = clamp(dot(lightDir, quadNormal), 0., 1.);
+    float diffFarLight = clamp(dot(farLightDir, quadNormal), 0., 1.);
+    vec3 diffuse = diffPointLight * lightColor * objectColor;
+
+    // fake water surface noise
+    // quadNormal += 0.06 * sin(particles[i].xyz * 20.0); 
+    // quadNormal = normalize(quadNormal);
+
+    // float wave = sin(10.0 * quadCenter.x + u_time) * cos(10.0 * quadCenter.y + u_time);
+    // quadNormal = normalize(quadNormal + vec3(0.1 * wave, 0.1 * wave, 0.0));
+
+    float fresnel = pow(1. - max(dot(quadNormal, viewDir), 0.), 5.);
+    fresnel = mix(.02, 1., fresnel);
+
+    // both of these are meant to be sampled from the environment
+    // sky or other background color
+    vec3 reflectionColor = vec3(0.0, 0.0, 0.0);
+
+    // underwater and behind color  
+    vec3 refractionColor = vec3(0.0471, 0.4353, 0.6588);
+
+    vec3 col = mix(reflectionColor, refractionColor, fresnel);
+
+    // specular light calculations
+    vec3 halfvec = normalize(lightDir + viewDir);
+    float specular = clamp(dot(halfvec, quadNormal), 0., 1.);
+    vec3 specularLight = vec3(pow(specular, 16.)) * lightColor * .5;
+
+    //FragColor = vec4(col + specularLight, 1.);
+
+    FragColor = vec4(diffuse, 1.);
+
+    // float depth = length(particles[i].xyz - cameraPos);
+    // FragColor = vec4(mix(vec4(0.), vec4(200.), depth / 200.));
 }

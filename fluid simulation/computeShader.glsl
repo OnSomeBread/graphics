@@ -177,7 +177,7 @@ void main() {
     velocities[i] += vec4(viscosity_accel * viscosity_multiplier * dt, 0.);
 
     // clamp to stop some aggressive behaviors at high speeds
-    particles[i] += clamp(velocities[i], vec4(-25.), vec4(25.)) * dt;
+    particles[i] += clamp(velocities[i], vec4(-28.), vec4(28.)) * dt;
 
     // check bounds and reverse particle direction with damping if bounds are hit
     vec3 p = particles[i].xyz;

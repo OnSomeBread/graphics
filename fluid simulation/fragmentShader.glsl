@@ -36,7 +36,23 @@ void main(){
     // FragColor = vec4(1-dot(norm, viewDir));
     // return ;
 
+    // fake water surface noise
+    //norm += 0.06 * sin(hit * 20.0); 
+    //norm = normalize(norm);
+
+    float fresnel = pow(1. - max(dot(norm, -viewDir), 0.), 5.);
+    fresnel = mix(.02, 1., fresnel);
+
+    // both of these are meant to be sampled from the environment
+    // sky or other background color
+    vec3 reflectionColor = vec3(0.0, 1.0, 0.1647);
+
+    // underwater and behind color  
+    vec3 refractionColor = vec3(1.0, 0.0, 0.1333);
+
+    vec3 col = mix(reflectionColor, refractionColor, fresnel);
+
     // combine lighting
     vec3 result = diffuse * objectColor;
-    FragColor = vec4(result, 1.0);
+    FragColor = vec4(col, 1.0);
 }

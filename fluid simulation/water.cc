@@ -7,8 +7,8 @@
 // https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf
 
 int main() {
-    const int screen_width = 800;
-    const int screen_height = 600;
+    const int screen_width = 960;
+    const int screen_height = 720;
 
     // create the window using GLFW and glad
     GLFWwindow* window = create_window(screen_width, screen_height, "Fluid Simulation");
@@ -61,10 +61,11 @@ int main() {
 
     // particle system settings
     vec3 min_bound(0.);
-    vec3 max_bound(200.);
+    vec3 max_bound(250.);
     vec3 bound_size = max_bound - min_bound;
-    vec4 v0Dir = vec4(2.);
+    vec4 v0Dir = vec4(0.);
     const float sphere_size = .5;
+    const float quad_size = 2.;
     const float gravity = 9.8;
     const float particle_mass = 1;
     const float particle_damping = .05;
@@ -74,15 +75,15 @@ int main() {
     const float viscosity_multiplier = .15;
 
     // TODO particle_count must be power of 2 for the parallel sort -- MUST FIX
-    int N = 5;
-    int r = pow(2, N);
-    int c = pow(2, N);
-    int p = pow(2, N);
+    const int N = 5;
+    const int r = pow(2, N);
+    const int c = pow(2, N);
+    const int p = pow(2, N);
     //float size = length(max_bound - min_bound) / 2. - 10.;
-    float size = 100.;
+    float size = max_bound.x / 2. - 10;
 
-    create_particle_cube(particles, min_bound, size, r, c, p);
-    create_particle_cube(particles, min_bound + vec3(size, size, 0), size, r, c, p);
+    create_particle_cube(particles, min_bound + vec3(5., 5., 0.), size, r, c, p);
+    create_particle_cube(particles, min_bound + vec3(size + 15., size + 15., 0), size, r, c, p);
     const int particles_count = particles.size();
 
     // ray marching field data settings
@@ -99,7 +100,7 @@ int main() {
     const float fovy = glm::radians(65.);
     const float aspectRatio = (float)screen_width / (float)screen_height;
     const float nearPlane = 0.1;
-    const float farPlane  = 500.;
+    const float farPlane  = 1000.;
 
     glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, upVector);
     glm::mat4 projection = glm::perspective(fovy, aspectRatio, nearPlane, farPlane);
@@ -232,15 +233,12 @@ int main() {
     glUniformMatrix4fv(glGetUniformLocation(quadShaderProgram, "viewProjection"), 1, GL_FALSE, glm::value_ptr(viewProjection));
     glUniformMatrix4fv(glGetUniformLocation(quadShaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
     glUniform3fv(glGetUniformLocation(quadShaderProgram, "cameraPos"), 1, glm::value_ptr(cameraPos));
-    glUniform1f(glGetUniformLocation(quadShaderProgram, "size"), 1);
+    glUniform1f(glGetUniformLocation(quadShaderProgram, "size"), quad_size);
 
     glUseProgram(computePredictedShaderProgram);
     glUniform1i(glGetUniformLocation(computePredictedShaderProgram, "particles_count"), particles_count);
     glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "density_radius"), density_radius);
     glUniform1f(glGetUniformLocation(computePredictedShaderProgram, "gravity"), gravity);
-
-    glUseProgram(computeNearbyIdxShaderProgram);
-    glUniform1i(glGetUniformLocation(computeNearbyIdxShaderProgram, "particles_count"), particles_count);
 
     glUseProgram(computeDensityShaderProgram);
     glUniform1i(glGetUniformLocation(computeDensityShaderProgram, "particles_count"), particles_count);
@@ -289,12 +287,11 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         double currTime = glfwGetTime();
         double dt = currTime - last_frame_time;
+        last_frame_time = currTime;
 
         // this prevents massive spikes from moving the screen 
         // since it pauses also from low fps
         dt = std::min(dt, .05);
-
-        last_frame_time = currTime;
 
         processInput(window);
         glClearColor(0., 0., 0., 1.);  
@@ -340,14 +337,15 @@ int main() {
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         
         // draw spheres
-        glUseProgram(shaderProgram);
-        glBindVertexArray(vao);
-        glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles_count);
+        // glUseProgram(shaderProgram);
+        // glBindVertexArray(vao);
+        // glDrawElementsInstanced(GL_TRIANGLES, faceList.size(), GL_UNSIGNED_INT, 0, particles_count);
 
         // draw quads
-        // glUseProgram(quadShaderProgram);
-        // glBindVertexArray(quadVAO);
-        // glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, particles_count);
+        glUseProgram(quadShaderProgram);
+        glUniform1f(glGetUniformLocation(quadShaderProgram, "u_time"), currTime);
+        glBindVertexArray(quadVAO);
+        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, particles_count);
 
         // create the density field
         // glUseProgram(fieldDataShaderProgram);

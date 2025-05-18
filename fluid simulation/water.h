@@ -160,10 +160,10 @@ void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned i
         double u = (2.0 * M_PI * i) / (double)ypartitions;
         for (int j = 0; j < xpartitions + 1; ++j) {
             double v = (M_PI * j) / (xpartitions / 2.0) - (M_PI / 2.0);
-            float cu = cos(u);
-            float su = sin(u);
-            float cv = cos(v);
-            float sv = sin(v);
+            double cu = cos(u);
+            double su = sin(u);
+            double cv = cos(v);
+            double sv = sin(v);
         
             verts.push_back(radius * vec3(cv * cu, cv * su, sv));
 
