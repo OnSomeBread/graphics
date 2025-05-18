@@ -11,7 +11,6 @@ out uint i;
 uniform mat4 viewProjection;
 uniform mat4 view;
 uniform float size;
-uniform float cameraPos;
 
 void main(){
     vec3 camRight = vec3(view[0][0], view[1][0], view[2][0]);

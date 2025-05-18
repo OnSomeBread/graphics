@@ -94,9 +94,9 @@ int main() {
 
     // view and proj settings
     vec3 cameraPos = vec3(15., -40., 35.);    
-    vec3 cameraTarget = vec3(35., 10., 10.);
+    vec3 cameraTarget = vec3(38., 10., 10.);
     vec3 upVector = vec3(0., 0., 1.);
-    const float fovy = glm::radians(55.);
+    const float fovy = glm::radians(65.);
     const float aspectRatio = (float)screen_width / (float)screen_height;
     const float nearPlane = 0.1;
     const float farPlane  = 500.;
@@ -226,6 +226,7 @@ int main() {
     // setup constant uniforms for each of the shader program
     glUseProgram(shaderProgram);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "viewProjection"), 1, GL_FALSE, glm::value_ptr(viewProjection));
+    glUniform3fv(glGetUniformLocation(shaderProgram, "cameraPos"), 1, glm::value_ptr(cameraPos));
 
     glUseProgram(quadShaderProgram);
     glUniformMatrix4fv(glGetUniformLocation(quadShaderProgram, "viewProjection"), 1, GL_FALSE, glm::value_ptr(viewProjection));
