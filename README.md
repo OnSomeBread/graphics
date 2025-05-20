@@ -16,11 +16,3 @@ Linear Interpolation and no Normals<br>
 <img src="visualizations/sphere_lerp_no_normals.gif" width="400" /><br><br>
 Linear Interpolation and appoximated Normals (gif compression makes it appear less smooth)<br>
 <img src="visualizations/smooth_sphere.gif" width="400" /><br><br>
-
-Affine Transformations - skew, twist, extrude, and sweeps on a polyset<br>
-usage ./proj1 inputFileName outputFileName technique techniqueArgs<br>
-possible techniques and args are<br>
-skew skewX skewY<br>
-twist degrees<br>
-extrude extrudeAmount<br>
-sweep steps degrees<br><br>
