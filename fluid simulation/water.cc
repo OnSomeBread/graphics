@@ -1,9 +1,9 @@
 #include "water.h"
 
-// PROBLEMS
+// TODO
 // EDGES HAVE GAPS
-// CLUMPS FORM
-// ADD NEAR DENSITY AND NEAR PRESSURE FORCES
+// ADD NEAR DENSITY AND NEAR PRESSURE FORCES TO REDUCE CLUMPING
+// FIX POWER OF 2 PARTICLES NEEDED FOR PARALLEL SORT
 // https://sph-tutorial.physics-simulation.org/pdf/SPH_Tutorial.pdf
 
 int main() {
@@ -224,7 +224,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    // setup constant uniforms for each of the shader program
+    // setup constant uniforms for each of the shader programs
     glUseProgram(shaderProgram);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "viewProjection"), 1, GL_FALSE, glm::value_ptr(viewProjection));
     glUniform3fv(glGetUniformLocation(shaderProgram, "cameraPos"), 1, glm::value_ptr(cameraPos));
@@ -275,8 +275,11 @@ int main() {
     glUniform3fv(glGetUniformLocation(rayMarchingShaderProgram, "max_bound"), 1, glm::value_ptr(max_bound));
     glUniform2f(glGetUniformLocation(rayMarchingShaderProgram, "u_resolution"), (float)screen_width, (float)screen_height);
 
+    // turn depth test on for polygon rendering and off for raymarching
     glEnable(GL_DEPTH_TEST);
     //glDisable(GL_DEPTH_TEST);
+
+    // this allows for opacity
     // glEnable(GL_BLEND);
     // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -368,7 +371,7 @@ int main() {
 
         ++frames;
 
-        // print fps
+        // print fps at interval
         if(currTime - last_fps_print_time > .5) {
             cout << (int)(frames / currTime) << endl;
             last_fps_print_time = currTime;
@@ -377,4 +380,184 @@ int main() {
 
     glfwDestroyWindow(window);
     glfwTerminate();
+}
+
+
+// grabs all lines from a shader file and puts it into a string
+std::string loadShaderSource(const char* filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()){
+        cout << "Failed to open shader file" << endl;
+        return "";
+    }
+        
+    
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+// deals with user interaction
+void processInput(GLFWwindow* window) {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+}
+
+// compiles shader and displays error
+GLuint create_shader(const char* shaderSource, GLenum shaderType) {
+    int success;
+    char infoLog[512];
+
+    GLuint shader = glCreateShader(shaderType);
+    glShaderSource(shader, 1, &shaderSource, nullptr);
+    glCompileShader(shader);
+
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(shader, 512, nullptr, infoLog);
+        std::cerr << "shader compilation failed:\n" << infoLog << "\n";
+    }
+
+    return shader;
+}
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+}
+
+// simply creates the screen that will display the visualization
+GLFWwindow* create_window(int screen_width, int screen_height, std::string screen_name){
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+
+
+    GLFWwindow* window =
+        glfwCreateWindow(screen_width, screen_height, screen_name.c_str(), nullptr, nullptr);
+    if (!window) {
+        std::cerr << "Failed to create GLFW window\n";
+        glfwTerminate();
+    }
+    glfwMakeContextCurrent(window);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD\n";
+    }
+
+    glViewport(0, 0, screen_width, screen_height);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    return window;
+}
+
+// linkes multiple shaders into 1 shader program
+GLuint create_shader_program(vector<GLuint>& shaders) {
+    int success;
+    char infoLog[512];
+    GLuint shaderProgram = glCreateProgram();
+    for(int i = 0; i < (int)shaders.size(); ++i){
+        glAttachShader(shaderProgram, shaders[i]);
+    }
+    
+    glLinkProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+        std::cerr << "shader program linking failed:\n" << infoLog << "\n";
+    }
+
+    for(int i = 0; i < (int)shaders.size(); ++i){
+        glDeleteShader(shaders[i]);
+    }
+
+    return shaderProgram;
+}
+
+// creates shader program from 1 shader
+GLuint create_shader_program(GLuint shader) {
+    int success;
+    char infoLog[512];
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, shader);
+    
+    glLinkProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+        std::cerr << "shader program linking failed:\n" << infoLog << "\n";
+    }
+
+    glDeleteShader(shader);
+
+    return shaderProgram;
+}
+
+// random floating point value between low inclusive and high exclusive  
+float random_float(float low, float high) {
+    return low + static_cast<float>(rand()) /
+                     (static_cast<float>(RAND_MAX / (high - low)));
+}
+
+// gives all of the verts and normals for a sphere going down y partitions and right x partitions
+// more partitions gives a better looking sphere 
+void create_sphere(vector<vec3>& verts, vector<vec3>& normals, vector<unsigned int>& faceList, int xpartitions, int ypartitions, float radius) {
+    for (int i = 0; i < ypartitions + 1; ++i) {
+        double u = (2.0 * M_PI * i) / (double)ypartitions;
+        for (int j = 0; j < xpartitions + 1; ++j) {
+            double v = (M_PI * j) / (xpartitions / 2.0) - (M_PI / 2.0);
+            double cu = cos(u);
+            double su = sin(u);
+            double cv = cos(v);
+            double sv = sin(v);
+        
+            verts.push_back(radius * vec3(cv * cu, cv * su, sv));
+
+            vec3 normal = normalize(radius * vec3(cv * cu, cv * su, sv));
+            normals.push_back(normal);
+
+            // normalize
+            //normals.push_back(vec3(nx, ny, nz) / std::sqrt(nx * nx + ny * ny + nz * nz));
+        }
+    }
+
+    // create the facelist
+    for (int i = 0; i < ypartitions; ++i) {
+        for (int j = 0; j < xpartitions; ++j) {
+            int i1 = i * (xpartitions + 1) + j;
+            int i2 = (i + 1) * (xpartitions + 1) + j;
+    
+            faceList.push_back(i1);
+            faceList.push_back(i2);
+            faceList.push_back(i1 + 1);
+    
+            faceList.push_back(i1 + 1);
+            faceList.push_back(i2);
+            faceList.push_back(i2 + 1);
+        }
+    }
+}
+
+// grid builds in +x, +y, +z from offset where x builds rows, y builds cols, and z builds planes
+void create_particle_cube(vector<vec4>& particles, vec3 offset, float size, int rows, int cols, int planes) {
+    vec3 spacing(size / (float)rows, size / (float)cols, size / (float)planes);
+    vec4 pos = vec4(0.);
+    
+    for (int i = 0; i < rows; ++i) {
+        pos.x = offset.x + i * spacing.x;
+        for (int j = 0; j < cols; ++j) {
+            pos.y = offset.y + j * spacing.y;
+            for (int k = 0; k < planes; ++k) {
+                pos.z = offset.z + k * spacing.z;
+
+                float rx = random_float(-spacing.x / 4., spacing.x / 4.);
+                float ry = random_float(-spacing.y / 4., spacing.y / 4.);
+                float rz = random_float(-spacing.z / 4., spacing.z / 4.);
+                
+                particles.push_back(pos + vec4(rx, ry, rz, 0.));
+            }
+        }
+    }
 }
