@@ -1,7 +1,7 @@
 Bezier curves and surfaces<br>
 usage ./rdv rdfile<br>
 calculated with real surface normals at each point with ∂/∂u(bernstein polynomials) X ∂/∂v(bernstein polynomials)<br>
-the teapot below is only with 10 subdivisions but calculated surface normals fake the smoothness much better than appoximation (assign 2 shows off appoximated normals)<br>
+the teapot below is only with 10 subdivisions but calculated surface normals fake the smoothness much better than appoximation<br>
 <img src="visualizations/teapot.png" width="500" /><br><br>
 
 Marching Cubes Algorithm<br>
