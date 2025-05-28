@@ -60,12 +60,13 @@ void main() {
     vec3 ro = vec3(0,0,-3.);
     vec3 rd = normalize(vec3(uv * 1.9, 1.));
     vec3 col = vec3(0.0, 0.0, 0.0);
+    
     // verticle rotation happens before the horizontal
-    // ro.yz *= rot2D(-m.y);
-    // rd.yz *= rot2D(-m.y);
+    ro.yz *= rot2D(-m.y);
+    rd.yz *= rot2D(-m.y);
 
-    // ro.xz *= rot2D(-m.x);
-    // rd.xz *= rot2D(-m.x);
+    ro.xz *= rot2D(-m.x);
+    rd.xz *= rot2D(-m.x);
 
     float t = rayMarch(ro, rd, 500.);
     vec3 skyColor = vec3(0.0196, 0.3529, 0.4863);

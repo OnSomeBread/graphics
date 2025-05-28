@@ -40,7 +40,12 @@ void main(){
 
     float diffPointLight = clamp(dot(lightDir, quadNormal), 0., 1.);
     float diffFarLight = clamp(dot(farLightDir, quadNormal), 0., 1.);
-    vec3 diffuse = diffPointLight * lightColor * objectColor;
+    vec3 diffuse = (diffPointLight + vec3(.2)) * lightColor * objectColor;
+
+    // specular light calculations
+    vec3 halfvec = normalize(lightDir + viewDir);
+    float specular = clamp(dot(halfvec, quadNormal), 0., 1.);
+    vec3 specularLight = vec3(pow(specular, 8.)) * lightColor * .05;
 
     // fake water surface noise
     // quadNormal += 0.06 * sin(particles[i].xyz * 20.0); 
@@ -62,13 +67,6 @@ void main(){
     // vec3 col = mix(reflectionColor, refractionColor, fresnel);
     // FragColor = vec4(pow(col, vec3(1./2.2)), 1.);
     // return ;
-
-    // specular light calculations
-    vec3 halfvec = normalize(lightDir + viewDir);
-    float specular = clamp(dot(halfvec, quadNormal), 0., 1.);
-    vec3 specularLight = vec3(pow(specular, 8.)) * lightColor * .2;
-
-    //FragColor = vec4(col + specularLight, 1.);
 
     // apply gamma correction to the final color
     vec3 finalColor = pow(diffuse + specularLight, vec3(1./2.2)) ;

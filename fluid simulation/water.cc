@@ -61,7 +61,7 @@ int main() {
 
     // particle system settings
     vec3 min_bound(0.);
-    vec3 max_bound(250.);
+    vec3 max_bound(226.);
     vec3 bound_size = max_bound - min_bound;
     vec4 v0Dir = vec4(0.);
     const float sphere_size = .5;
@@ -87,7 +87,7 @@ int main() {
     const int particles_count = particles.size();
 
     // ray marching field data settings
-    const float field_size = 0.2;
+    const float field_size = 1.1;
     const int field_rows = ceil(bound_size.x / field_size) + 1;
     const int field_cols = ceil(bound_size.y / field_size) + 1;
     const int field_planes = ceil(bound_size.z / field_size) + 1;
@@ -350,7 +350,7 @@ int main() {
         glBindVertexArray(quadVAO);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, particles_count);
 
-        // create the density field
+        // // create the density field
         // glUseProgram(fieldDataShaderProgram);
         // glDispatchCompute(field_rows / 4, field_cols / 4, field_planes / 4);
         // glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

@@ -20,7 +20,6 @@ void main(){
     vec3 offset = (aQuadPos.x * camRight + aQuadPos.y * camUp) * size;
     vec3 worldPos = particles[gl_InstanceID].xyz + offset;
 
-    i = gl_InstanceID;
     quadPos = aQuadPos;
     quadOffset = offset;
     gl_Position = viewProjection * vec4(worldPos, 1.0);
