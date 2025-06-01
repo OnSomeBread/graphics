@@ -1,3 +1,6 @@
+Fluid Simulation using GLSL Shaders running well over 1000 fps with 100,000 particles<br>
+<img src="visualizations/watersim.gif" width="500" /><br><br>
+
 Bezier curves and surfaces<br>
 usage ./rdv rdfile<br>
 calculated with real surface normals at each point with ∂/∂u(bernstein polynomials) X ∂/∂v(bernstein polynomials)<br>
