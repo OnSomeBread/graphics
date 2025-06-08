@@ -34,8 +34,7 @@ vec3 palette(float t){
 
     return a + b*cos( 6.283185*(c*t+d) );
 }
-float sdHexPrism( vec3 p, vec2 h )
-{
+float sdHexPrism( vec3 p, vec2 h ){
     vec3 q = abs(p);
 
     const vec3 k = vec3(-0.8660254, 0.5, 0.57735);
