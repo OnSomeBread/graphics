@@ -98,6 +98,7 @@ float calcDensity(float3 particle) {
     double density = 0.;
     int3 base = int3(particle / _DensityRadius);
 
+    // perform nearby search
     for (int i = -1; i <= 1; ++i) {
         for (int j = -1; j <= 1; ++j) {
             for (int k = -1; k <= 1; ++k) {
@@ -107,6 +108,7 @@ float calcDensity(float3 particle) {
                 if(idx == maxInt) continue;
                 int value = _Nearby[idx].gridIdx;
 
+                // look at all of the particles in the particular grid
                 for(int l = 0; _Nearby[idx + l].gridIdx == value && l < _ParticleCount; ++l) {
                     float d = length(_PredictedParticles[_Nearby[idx + l].particleIdx].xyz - particle);
                     density += smoothing(_DensityRadius, d);
@@ -150,7 +152,7 @@ float DsteeperSmoothing(float dst, float radius) {
 }
 
 float random(float idx) {
-    return frac(sin(dot(idx,12.9898)) * 43758.5453123);
+    return frac(sin(dot(idx, 12.9898)) * 43758.5453123);
 }
 
 float3 random_dir(float idx) {

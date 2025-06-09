@@ -47,6 +47,10 @@ Shader "Unlit/waterShader"{
                 float sqrDst = dot(quadCenter, quadCenter);
                 if(sqrDst > 1) discard;
 
+                // sphere imposter
+                float quadz = sqrt(1 - sqrDst);
+                float3 quadNormal = normalize(float3(quadCenter, quadz));
+
                 return tex2D(_MainTex, i.uv) * float4(pow(_Color.rgb, 1.0/2.2), _Color.a);
             }
             ENDCG
