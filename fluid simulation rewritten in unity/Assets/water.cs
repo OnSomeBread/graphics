@@ -140,12 +140,6 @@ public class Water : MonoBehaviour{
 
         computeShader.Dispatch(CSNearbyIdx, dispatchSize, 1, 1);
         computeShader.Dispatch(CSCalcDensity, dispatchSize, 1, 1);
-        // float4[] data = new float4[particleCount];
-        // predictedBuffer.GetData(data);
-        // for (int i = 0; i < particleCount; ++i){
-        //     Debug.Log(data[i]);
-        // }
-        // Debug.Log("END");
 
         computeShader.Dispatch(CSCalcForces, dispatchSize, 1, 1);
 
@@ -180,6 +174,20 @@ public class Water : MonoBehaviour{
     void OnDrawGizmos(){
         Gizmos.color = Color.white;
         Gizmos.DrawWireCube(boundingBox.center, boundingBox.size);
+
+        // Gizmos.color = Color.blue;
+        // float3[] particles = new float3[particleCount];
+        // particleBuffer.GetData(particles);
+        // // float3[] velocities = new float3[particleCount];
+        // // velocitiesBuffer.GetData(velocities);
+        // // for (int i = 0; i < particleCount; ++i) {
+        // //     Gizmos.DrawLine(particles[i], particles[i] + velocities[i]);
+        // // }
+        // float2[] densities = new float2[particleCount];
+        // densitiesBuffer.GetData(densities);
+        // for (int i = 0; i < particleCount; ++i){
+        //     UnityEditor.Handles.Label(particles[i], $"{densities[i].x:F2}");
+        // }
     }
 
     void OnDestroy(){
