@@ -353,7 +353,7 @@ MonoBehaviour:
   targetDensity: 2.75
   pressureMultiplier: 50
   viscosityMultiplier: 0.15
-  nearPressureMultiplier: 1
+  nearPressureMultiplier: 0.01
   particleColor: {r: 0.0082769515, g: 0.07790291, b: 0.5849056, a: 0}
   computeShader: {fileID: 7200000, guid: c7ffaee261254bb47b8725da2191532a, type: 3}
 --- !u!4 &1720261691
