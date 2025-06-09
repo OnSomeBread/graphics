@@ -21,8 +21,9 @@ public class Water : MonoBehaviour{
     public ComputeShader computeShader;
     private Material material;
 
+    // creates a 3d cube of particles with even spacing between particles
     void createWaterCube(ref List<float4> particles, ref List<float4> velocities, float3 offset, float size, int rows, int cols, int planes){
-        float3 spacing = new float3(size / (float)rows, size / (float)cols, size / (float)planes);
+        float3 spacing = new float3(size / rows, size / cols, size / planes);
         float4 pos = new float4(0);
 
         for (int i = 0; i < rows; ++i){
@@ -46,6 +47,7 @@ public class Water : MonoBehaviour{
     private ComputeBuffer particleBuffer;
     private ComputeBuffer velocitiesBuffer;
     private ComputeBuffer predictedBuffer;
+    private ComputeBuffer densitiesBuffer;
     private ComputeBuffer nearbyBuffer;
     private ComputeBuffer nearbyIdxBuffer;
     private int CSPredicted;
@@ -57,6 +59,7 @@ public class Water : MonoBehaviour{
     private Mesh quadMesh;
     private Bounds boundingBox;
     private int dispatchSize;
+    
     void Start(){
         // TODO particle_count must be power of 2 for the parallel sort -- MUST FIX
         const int N = 5;
@@ -83,6 +86,7 @@ public class Water : MonoBehaviour{
         velocitiesBuffer = new ComputeBuffer(particleCount, sizeof(float) * 4);
         velocitiesBuffer.SetData(velocities);
         predictedBuffer = new ComputeBuffer(particleCount, sizeof(float) * 4);
+        densitiesBuffer = new ComputeBuffer(particleCount, sizeof(float) * 2);
         nearbyBuffer = new ComputeBuffer(particleCount, sizeof(int) * 2);
         nearbyIdxBuffer = new ComputeBuffer(particleCount, sizeof(int));
 
@@ -102,6 +106,7 @@ public class Water : MonoBehaviour{
 
         CSCalcDensity = computeShader.FindKernel("CSCalcDensity");
         computeShader.SetBuffer(CSCalcDensity, "_PredictedParticles", predictedBuffer);
+        computeShader.SetBuffer(CSCalcDensity, "_Densities", densitiesBuffer);
         computeShader.SetBuffer(CSCalcDensity, "_Nearby", nearbyBuffer);
         computeShader.SetBuffer(CSCalcDensity, "_NearbyIdx", nearbyIdxBuffer);
 
@@ -109,6 +114,7 @@ public class Water : MonoBehaviour{
         computeShader.SetBuffer(CSCalcForces, "_Particles", particleBuffer);
         computeShader.SetBuffer(CSCalcForces, "_Velocities", velocitiesBuffer);
         computeShader.SetBuffer(CSCalcForces, "_PredictedParticles", predictedBuffer);
+        computeShader.SetBuffer(CSCalcForces, "_Densities", densitiesBuffer);
         computeShader.SetBuffer(CSCalcForces, "_Nearby", nearbyBuffer);
         computeShader.SetBuffer(CSCalcForces, "_NearbyIdx", nearbyIdxBuffer);
 
@@ -116,7 +122,7 @@ public class Water : MonoBehaviour{
         boundingBox = new Bounds((minBound + maxBound) / 2f, maxBound - minBound);
         dispatchSize = Mathf.CeilToInt(particleCount / 32f);
 
-        //Application.targetFrameRate = 60;
+        Application.targetFrameRate = 120;
     }
 
     void Update(){
@@ -149,6 +155,7 @@ public class Water : MonoBehaviour{
     }
 
     void UpdateSettings(){
+        // simulation settings set every frame so user can interact with them
         computeShader.SetFloat("_ParticleMass", particleMass);
         computeShader.SetFloat("_DensityRadius", densityRadius);
         computeShader.SetFloat("_TargetDensity", targetDensity);
@@ -161,9 +168,11 @@ public class Water : MonoBehaviour{
         computeShader.SetFloat("_Gravity", gravity);
         computeShader.SetFloat("_DT", Mathf.Min(Time.deltaTime, .05f));
 
+        // settings for making the quads front facing
         material.SetVector("_CameraRight", Camera.main.transform.right);
         material.SetVector("_CameraUp", Camera.main.transform.up);
 
+        // quad settings
         material.SetFloat("_Size", particleSize);
         material.SetColor("_Color", particleColor);
         

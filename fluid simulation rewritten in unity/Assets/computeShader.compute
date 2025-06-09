@@ -12,6 +12,7 @@ struct Entry {
 RWStructuredBuffer<float4> _Particles;
 RWStructuredBuffer<float4> _Velocities;
 RWStructuredBuffer<float4> _PredictedParticles;
+RWStructuredBuffer<float2> _Densities;
 RWStructuredBuffer<Entry> _Nearby;
 RWStructuredBuffer<int> _NearbyIdx;
 
@@ -119,7 +120,7 @@ float calcDensity(float3 particle) {
 
 [numthreads(32, 1, 1)]
 void CSCalcDensity(uint3 id : SV_DispatchThreadID) {
-    _PredictedParticles[id.x].w = calcDensity(_PredictedParticles[id.x].xyz);
+    _Densities[id.x].x = calcDensity(_PredictedParticles[id.x].xyz);
 }
 
 // derivative of the smoothing function
@@ -156,7 +157,7 @@ float3 random_dir(float idx) {
     return float3(random(idx + 73856093.), random(idx + 19349663.), random(idx + 83492791.));
 }
 
-float3 pressure_force(float4 particle, int instanceID) {
+float3 pressure_force(float3 particle, int instanceID) {
     double3 pressure = double3(0, 0, 0);
     int3 base = int3(particle.xyz / _DensityRadius);
 
@@ -185,8 +186,8 @@ float3 pressure_force(float4 particle, int instanceID) {
 
                     // instead of just p0 use the average particle pressure between the
                     // current particle and this particle
-                    float p0 = _TargetDensity - _PredictedParticles[particleIdx].w;
-                    float p1 = _TargetDensity - particle.w;
+                    float p0 = _TargetDensity - _Densities[particleIdx].x;
+                    float p1 = _TargetDensity - _Densities[instanceID].x;
                     float avgp = (p0 + p1) / 2.0;
 
                     pressure += dir * avgp * ds;
@@ -218,7 +219,7 @@ float3 viscosity_force(float3 particle, float3 velocity) {
                     float3 particleDiff = particle - _PredictedParticles[particleIdx].xyz;
                     float d = length(particleDiff);
                     float s = smoothing(_DensityRadius, d);
-                    viscosity += (_Velocities[i].xyz - velocity) * s;
+                    viscosity += (_Velocities[particleIdx].xyz - velocity) * s;
                 }
             }
         }
@@ -232,8 +233,8 @@ void CSCalcForces(uint3 id : SV_DispatchThreadID) {
     uint i = id.x;
     // add particle pressure forces
     // tells the particle how fast it should conform to target density
-    float3 pressureAccel = pressure_force(_PredictedParticles[i], i) * _PressureMultiplier / _PredictedParticles[i].w;
-    _Velocities[i] += float4(pressureAccel * _DT, 0.);
+    float3 pressureAccel = pressure_force(_PredictedParticles[i].xyz, i) / _Densities[i].x;
+    _Velocities[i] += float4(pressureAccel * _PressureMultiplier * _DT, 0.);
 
     // add viscosity force
     // creates friction between nearby particles so that particles within
@@ -242,13 +243,13 @@ void CSCalcForces(uint3 id : SV_DispatchThreadID) {
     _Velocities[i] += float4(viscosity_accel * _ViscosityMultiplier * _DT, 0.);
 
     // clamp to stop some aggressive behaviors at high speeds
-    _Particles[i] += clamp(_Velocities[i], float4(-28,-28,-28, 0), float4(28, 28, 28, 0)) * _DT;
-    //_Particles[i] += _Velocities[i] * _DT;
+    //_Particles[i] += clamp(_Velocities[i], float4(-28,-28,-28, 0), float4(28, 28, 28, 0)) * _DT;
+    _Particles[i] += _Velocities[i] * _DT;
 
     // check bounds and reverse particle direction with damping if bounds are hit
     float3 p = _Particles[i].xyz;
     float3 c = clamp(p, _MinBound.xyz, _MaxBound.xyz);
-    _Particles[i] = float4(c, 0);
 
-    _Velocities[i] = lerp(_Velocities[i], _Velocities[i] * -_ParticleDamping, float4(p.x != c.x, p.y != c.y, p.z != c.z, 0.));
+    _Particles[i] = float4(c, 0);
+    _Velocities[i] = float4(lerp(_Velocities[i].xyz, _Velocities[i].xyz * -_ParticleDamping, float3(p.x != c.x, p.y != c.y, p.z != c.z)), 0);
 }
